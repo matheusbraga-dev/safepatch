@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safepatch"
+version = "1.0.0"
+description = "Ferramenta CLI de auditoria e comparação de pacotes Java/compactados (.jar, .war, .zip) com detecção de conflitos e diff descompilado"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Matheus Braga", email = "contato@matheusbraga.dev" }
+]
+maintainers = [
+    { name = "Matheus Braga", email = "contato@matheusbraga.dev" }
+]
+keywords = [
+    "java",
+    "jar",
+    "war",
+    "zip",
+    "diff",
+    "decompiler",
+    "cfr",
+    "patch",
+    "audit",
+    "cli"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Version Control",
+    "Topic :: Utilities"
+]
+dependencies = []
+
+[project.scripts]
+safepatch = "safepatch.presentation.cli:main"
+safepath = "safepatch.presentation.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[project.urls]
+Homepage = "https://matheusbraga.dev"
+Repository = "https://github.com/matheusbraga-dev/safepatch"
+Issues = "https://github.com/matheusbraga-dev/safepatch/issues"
+Documentation = "https://github.com/matheusbraga-dev/safepatch#readme"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["safepatch*"]
+
+[tool.setuptools.package-data]
+"safepatch" = ["bin/*.jar"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+

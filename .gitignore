@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.swp
+*.swo
+.DS_Store
+.venv/
+env/
+# Pastas locais de pacotes do usuário
+original/
+modificado/
+
+# Descompilador CFR integrado
+!src/safepatch/bin/cfr.jar
+
+*.html
+*.json
+*.md.tmp
+
+# Artefatos de Build e Empacotamento
+build/
+dist/
+*.egg-info/
+*.egg
