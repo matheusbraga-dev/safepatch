@@ -44,7 +44,7 @@ class ExportadorHTML(ProtocoloExportador):
                 diff_linhas = diff_motor.diff_modificado(caminho_base, caminho_alvo, m.caminho)
                 diff_formatado = formatar_diff_html(diff_linhas)
                 diff_row = f"""
-                <tr class="diff-row">
+                <tr class="diff-row" data-tipo="modificados" data-caminho="{caminho_escapado}">
                     <td colspan="6">
                         <details class="diff-details">
                             <summary>Ver Diff Estilo Git</summary>
@@ -55,7 +55,7 @@ class ExportadorHTML(ProtocoloExportador):
                 """
 
             modificados_html += f"""
-            <tr class="data-row">
+            <tr class="data-row" data-tipo="modificados" data-caminho="{caminho_escapado}">
                 <td class="col-file"><code title="{caminho_escapado}">{caminho_escapado}</code></td>
                 <td>{m.base.tamanho_formatado}</td>
                 <td>{m.alvo.tamanho_formatado}</td>
@@ -76,7 +76,7 @@ class ExportadorHTML(ProtocoloExportador):
                 diff_linhas = diff_motor.diff_adicionado(caminho_alvo, a.caminho)
                 diff_formatado = formatar_diff_html(diff_linhas)
                 diff_row = f"""
-                <tr class="diff-row">
+                <tr class="diff-row" data-tipo="adicionados" data-caminho="{caminho_escapado}">
                     <td colspan="3">
                         <details class="diff-details">
                             <summary>Ver Conteúdo Adicionado</summary>
@@ -87,7 +87,7 @@ class ExportadorHTML(ProtocoloExportador):
                 """
 
             adicionados_html += f"""
-            <tr class="data-row">
+            <tr class="data-row" data-tipo="adicionados" data-caminho="{caminho_escapado}">
                 <td class="col-file"><code title="{caminho_escapado}">{caminho_escapado}</code></td>
                 <td>{a.tamanho_formatado}</td>
                 <td><code title="{escapar_html(a.hash_sha256)}">{escapar_html(a.hash_sha256[:10])}...</code></td>
@@ -105,7 +105,7 @@ class ExportadorHTML(ProtocoloExportador):
                 diff_linhas = diff_motor.diff_removido(caminho_base, r.caminho)
                 diff_formatado = formatar_diff_html(diff_linhas)
                 diff_row = f"""
-                <tr class="diff-row">
+                <tr class="diff-row" data-tipo="removidos" data-caminho="{caminho_escapado}">
                     <td colspan="3">
                         <details class="diff-details">
                             <summary>Ver Conteúdo Removido</summary>
@@ -116,7 +116,7 @@ class ExportadorHTML(ProtocoloExportador):
                 """
 
             removidos_html += f"""
-            <tr class="data-row">
+            <tr class="data-row" data-tipo="removidos" data-caminho="{caminho_escapado}">
                 <td class="col-file"><code title="{caminho_escapado}">{caminho_escapado}</code></td>
                 <td>{r.tamanho_formatado}</td>
                 <td><code title="{escapar_html(r.hash_sha256)}">{escapar_html(r.hash_sha256[:10])}...</code></td>
@@ -125,7 +125,7 @@ class ExportadorHTML(ProtocoloExportador):
             """
 
         secao_modificados = (
-            f"""<section>
+            f"""<section class='secao-categoria' data-categoria='modificados'>
                 <h2>[~] Arquivos Modificados (Atenção / Conflitos)</h2>
                 <div class='table-responsive'>
                     <table>
@@ -148,7 +148,7 @@ class ExportadorHTML(ProtocoloExportador):
         )
 
         secao_adicionados = (
-            f"""<section>
+            f"""<section class='secao-categoria' data-categoria='adicionados'>
                 <h2>[+] Arquivos Adicionados</h2>
                 <div class='table-responsive'>
                     <table>
@@ -163,7 +163,7 @@ class ExportadorHTML(ProtocoloExportador):
         )
 
         secao_removidos = (
-            f"""<section>
+            f"""<section class='secao-categoria' data-categoria='removidos'>
                 <h2>[-] Arquivos Removidos</h2>
                 <div class='table-responsive'>
                     <table>
@@ -352,6 +352,81 @@ class ExportadorHTML(ProtocoloExportador):
         }}
         .footer a {{ color: var(--primary); text-decoration: none; font-weight: 500; }}
         .footer a:hover {{ text-decoration: underline; }}
+        .search-filter-box {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }}
+        .search-wrapper {{
+            display: flex;
+            align-items: center;
+            position: relative;
+        }}
+        #filtro-busca {{
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }}
+        #filtro-busca:focus {{
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }}
+        .filtro-botoes {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }}
+        .btn-filtro {{
+            background: rgba(148, 163, 184, 0.1);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.9rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }}
+        .btn-filtro:hover {{
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            border-color: var(--primary);
+        }}
+        .btn-filtro.ativo {{
+            background: var(--primary);
+            color: #0b1120;
+            border-color: var(--primary);
+            font-weight: 600;
+        }}
+        .badge-status-filtro {{
+            margin-left: auto;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }}
+        .empty-filter-state {{
+            display: none;
+            text-align: center;
+            padding: 3rem 1rem;
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }}
     </style>
 </head>
 <body>
@@ -383,6 +458,23 @@ class ExportadorHTML(ProtocoloExportador):
             </div>
         </div>
 
+        <div class="search-filter-box">
+            <div class="search-wrapper">
+                <input type="text" id="filtro-busca" placeholder="🔍 Filtrar por nome do arquivo ou pacote (ex: UserDTO, .xml, service)..." autocomplete="off" />
+            </div>
+            <div class="filtro-botoes">
+                <button type="button" class="btn-filtro ativo" data-tipo="todos">Todos</button>
+                <button type="button" class="btn-filtro" data-tipo="modificados">Modificados ({relatorio.total_modificados})</button>
+                <button type="button" class="btn-filtro" data-tipo="adicionados">Adicionados ({relatorio.total_adicionados})</button>
+                <button type="button" class="btn-filtro" data-tipo="removidos">Removidos ({relatorio.total_removidos})</button>
+                <span id="status-filtro" class="badge-status-filtro"></span>
+            </div>
+        </div>
+
+        <div id="empty-state" class="empty-filter-state">
+            Nenhum arquivo encontrado para o filtro atual.
+        </div>
+
         {secao_modificados}
         {secao_adicionados}
         {secao_removidos}
@@ -391,6 +483,72 @@ class ExportadorHTML(ProtocoloExportador):
             Make With Coffee by <a href="https://matheusbraga.dev" target="_blank" rel="noopener noreferrer">matheusbraga.dev</a>
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {{
+            const inputBusca = document.getElementById("filtro-busca");
+            const botoes = document.querySelectorAll(".btn-filtro");
+            const statusFiltro = document.getElementById("status-filtro");
+            const emptyState = document.getElementById("empty-state");
+            let tipoAtivo = "todos";
+
+            function atualizarVisualizacao() {{
+                const termo = (inputBusca.value || "").trim().toLowerCase();
+                const linhas = document.querySelectorAll("tr.data-row");
+                let totalVisiveis = 0;
+
+                linhas.forEach(linha => {{
+                    const caminho = (linha.getAttribute("data-caminho") || "").toLowerCase();
+                    const tipo = linha.getAttribute("data-tipo") || "";
+                    const diffLinha = linha.nextElementSibling && linha.nextElementSibling.classList.contains("diff-row") ? linha.nextElementSibling : null;
+
+                    const matchTipo = (tipoAtivo === "todos" || tipo === tipoAtivo);
+                    const matchTermo = !termo || caminho.includes(termo);
+
+                    if (matchTipo && matchTermo) {{
+                        linha.style.display = "";
+                        if (diffLinha) diffLinha.style.display = "";
+                        totalVisiveis++;
+                    }} else {{
+                        linha.style.display = "none";
+                        if (diffLinha) diffLinha.style.display = "none";
+                    }}
+                }});
+
+                document.querySelectorAll("section.secao-categoria").forEach(sec => {{
+                    const visiveisNaSecao = sec.querySelectorAll("tr.data-row:not([style*='display: none'])").length;
+                    if (visiveisNaSecao > 0) {{
+                        sec.style.display = "";
+                    }} else {{
+                        sec.style.display = "none";
+                    }}
+                }});
+
+                if (emptyState) {{
+                    emptyState.style.display = (totalVisiveis === 0 && (linhas.length > 0)) ? "block" : "none";
+                }}
+
+                if (statusFiltro) {{
+                    statusFiltro.textContent = totalVisiveis + " arquivo(s) exibido(s)";
+                }}
+            }}
+
+            if (inputBusca) {{
+                inputBusca.addEventListener("input", atualizarVisualizacao);
+            }}
+
+            botoes.forEach(btn => {{
+                btn.addEventListener("click", function() {{
+                    botoes.forEach(b => b.classList.remove("ativo"));
+                    this.classList.add("ativo");
+                    tipoAtivo = this.getAttribute("data-tipo") || "todos";
+                    atualizarVisualizacao();
+                }});
+            }});
+
+            atualizarVisualizacao();
+        }});
+    </script>
 </body>
 </html>
 """

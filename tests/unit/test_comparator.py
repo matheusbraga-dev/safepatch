@@ -56,6 +56,28 @@ class TestComparadorPacotesConjuntos(unittest.TestCase):
         self.assertEqual(len(relatorio.modificados), 1)
         self.assertEqual(relatorio.modificados[0].caminho, "app.class")
 
+    def test_filtro_glob_inclusao(self):
+        comparador_inclusao = ComparadorPacotesConjuntos(padroes_filtro=["*UserDTO*"])
+        inv_base = {
+            "com/example/dto/UserDTO.class": ArquivoInfo("com/example/dto/UserDTO.class", "hash1", 100),
+            "com/example/dto/OrderDTO.class": ArquivoInfo("com/example/dto/OrderDTO.class", "hash2", 150),
+            "com/example/service/UserService.class": ArquivoInfo("com/example/service/UserService.class", "hash3", 200),
+        }
+        inv_alvo = {
+            "com/example/dto/UserDTO.class": ArquivoInfo("com/example/dto/UserDTO.class", "hash1_mod", 120),
+            "com/example/dto/OrderDTO.class": ArquivoInfo("com/example/dto/OrderDTO.class", "hash2_mod", 160),
+            "com/example/service/UserService.class": ArquivoInfo("com/example/service/UserService.class", "hash3", 200),
+        }
+
+        relatorio = comparador_inclusao.comparar("base.jar", inv_base, "alvo.jar", inv_alvo)
+
+        # Apenas UserDTO.class deve ser analisado
+        self.assertEqual(len(relatorio.modificados), 1)
+        self.assertEqual(relatorio.modificados[0].caminho, "com/example/dto/UserDTO.class")
+        self.assertEqual(len(relatorio.inalterados), 0)
+        self.assertEqual(len(relatorio.adicionados), 0)
+        self.assertEqual(len(relatorio.removidos), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

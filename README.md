@@ -13,18 +13,21 @@ Zero dependências externas: construída exclusivamente com a **biblioteca padr�
 ## 🚀 Funcionalidades
 
 * ⚡ **Leitura Otimizada em Streaming**: Processa pacotes lendo blocos de 64KB sob demanda, permitindo analisar arquivos pesados com consumo mínimo de memória RAM.
+* 📁 **Suporte Híbrido a Pacotes e Pastas**: Aceita arquivos `.jar`, `.war`, `.zip` ou **diretórios locais descompactados** (ex: `target/classes`, `build/classes`). Permite comparações entre `jar vs jar`, `pasta vs jar` e `pasta vs pasta`.
 * 🔒 **Verificação de Integridade (SHA-256)**: Compara o hash SHA-256 de cada arquivo interno para garantir a detecção exata de modificações lógicas, mesmo quando as datas de modificação ou atributos forem alterados.
 * 📊 **Cálculo de Variação (Delta)**: Exibe a diferença de tamanho (em bytes, KB, MB) para cada arquivo modificado (ex: `1.81 KB → 2.39 KB | +602 B`).
 * ☕ **Diff Descompilado no Estilo Git (`-d / --diff`)**:
   * Mostra as linhas adicionadas (`+`) e removidas (`-`) em arquivos modificados, novos e deletados.
   * Suporta arquivos de texto puro (XML, JSON, properties, YAML, SQL, código-fonte, etc.).
   * **Descompilação Automática de Bytecode Java (.class)**: Descompila arquivos `.class` em **código-fonte Java real e limpo** (via CFR Decompiler integrado), permitindo ler métodos e classes sem ter que decifrar instruções de bytecode.
-* 🎯 **Filtro de Exclusão com Padrões Glob (`-i / --ignorar`)**: Permite ignorar metadados voláteis como `META-INF/*`, arquivos de documentação (`*.md`) ou logs.
+* 🎯 **Filtros Flexíveis por Padrões Glob**:
+  * **Inclusão (`-f / --filtro`)**: Concentre a auditoria em classes ou pacotes específicos (ex: `-f "*UserDTO*"`, `-f "com/exemplo/servico/*"`).
+  * **Exclusão (`-i / --ignorar`)**: Ignore metadados voláteis como `META-INF/*`, arquivos de documentação (`*.md`) ou logs.
 * 📄 **Múltiplos Formatos de Relatório**:
   * **Console (Terminal)**: Colorido via ANSI com modo compacto ou verboso (`--verbose`).
   * **JSON (`--json`)**: Estruturado com metadados e totais, ideal para integrações e APIs.
   * **Markdown (`--markdown / --md`)**: Tabelas e diffs prontas para documentação ou Pull Requests.
-  * **HTML (`--html`)**: Dashboard visual moderno, responsivo, com diffs embutidos e 100% autossuficiente (sem dependências externas).
+  * **HTML Interativo (`--html`)**: Dashboard visual moderno e responsivo com **campo de busca instantânea**, filtros rápidos por categoria (Modificados, Adicionados, Removidos) e diffs embutidos, 100% offline (zero CDNs externas).
 * 🤖 **Pronto para CI/CD (`--fail-on-conflict`)**: Retorna código de saída `2` se detectar arquivos conflitantes/modificados, permitindo travar esteiras de deploy indesejadas.
 
 ---
@@ -140,7 +143,38 @@ safepatch --base "app-v1.0.jar" \
 
 ---
 
-### 4. Ignorando Metadados ou Padrões Específicos
+### 4. Filtrando Classes ou Pacotes Específicos (`-f / --filtro`)
+
+Para focar a auditoria apenas nas classes ou pacotes relevantes para o seu patch:
+
+```bash
+# Audita apenas a classe UserDTO e arquivos do pacote financeiro
+safepatch --base "app-v1.0.jar" \
+          --alvo "app-v1.1.jar" \
+          -f "*UserDTO*" \
+          -f "com/empresa/financeiro/*"
+```
+
+---
+
+### 5. Comparando Diretórios Locais e Pacotes (`pasta vs jar` ou `pasta vs pasta`)
+
+O SafePatch aceita pastas descompactadas diretamente (como o diretório de saída do Maven `target/classes` ou Gradle `build/classes/java/main`), dispensando a necessidade de empacotar em JAR antes de analisar:
+
+```bash
+# Compara a pasta compilada local contra o JAR de produção do cliente
+safepatch --base "cliente-producao.jar" \
+          --alvo "target/classes" \
+          --diff
+
+# Ou compara duas pastas compiladas diretamente
+safepatch --base "workspace-v1/target/classes" \
+          --alvo "workspace-v2/target/classes"
+```
+
+---
+
+### 6. Ignorando Metadados ou Padrões Específicos (`-i / --ignorar`)
 
 Para evitar falsos positivos gerados por manifests de build ou documentação:
 
@@ -153,7 +187,7 @@ safepatch --base "pacote_v1.jar" \
 
 ---
 
-### 5. Modo Verboso e Controle de Limite de Exibição
+### 7. Modo Verboso e Controle de Limite de Exibição
 
 Por padrão, a CLI exibe no máximo 10 arquivos por categoria no console para evitar poluição. Para ver todos os arquivos:
 
@@ -167,7 +201,7 @@ safepatch --base "base.jar" --alvo "alvo.jar" --limite 25
 
 ---
 
-### 6. Integração Contínua (CI/CD)
+### 8. Integração Contínua (CI/CD)
 
 Use a flag `--fail-on-conflict` para interromper scripts de automação se houver alterações inesperadas:
 
@@ -188,16 +222,17 @@ safepatch --base "base.jar" --alvo "alvo.jar" --fail-on-conflict
 
 | Parâmetro | Tipo | Descrição |
 | :--- | :---: | :--- |
-| `--base` | `string` | **Obrigatório.** Caminho para o pacote base de referência. |
-| `--alvo` | `string` | **Obrigatório.** Caminho para o pacote alvo a ser comparado. |
-| `-d`, `--diff` | `flag` | Exibe a diferença detalhada do conteúdo estilo Git (linhas adicionadas e removidas em código Java legível). |
+| `--base` | `string` | **Obrigatório.** Caminho para o pacote ou diretório base de referência (`.jar`, `.war`, `.zip` ou pasta). |
+| `--alvo` | `string` | **Obrigatório.** Caminho para o pacote ou diretório alvo a ser comparado (`.jar`, `.war`, `.zip` ou pasta). |
+| `-f`, `--filtro` | `string` | Padrão glob de arquivos ou classes a incluir na análise (ex: `'*UserDTO*'`). Pode ser repetido. |
 | `-i`, `--ignorar` | `string` | Padrão glob de arquivos a ignorar (ex: `'META-INF/*'`). Pode ser repetido. |
+| `-d`, `--diff` | `flag` | Exibe a diferença detalhada do conteúdo estilo Git (linhas adicionadas e removidas em código Java legível). |
 | `-v`, `--verbose` | `flag` | Exibe a lista completa de arquivos no terminal sem limites. |
 | `--limite` | `int` | Quantidade máxima de itens por categoria exibidos no terminal (padrão: `10`). |
 | `--no-color` | `flag` | Desativa a coloração ANSI na saída do console. |
 | `--json` | `string` | Caminho do arquivo para salvar o relatório em formato JSON. |
 | `--md`, `--markdown` | `string` | Caminho do arquivo para salvar o relatório em formato Markdown. |
-| `--html` | `string` | Caminho do arquivo para salvar o relatório visual em HTML. |
+| `--html` | `string` | Caminho do arquivo para salvar o relatório visual interativo em HTML com busca e filtros em tempo real. |
 | `--fail-on-conflict` | `flag` | Encerra com código `2` caso haja arquivos modificados. |
 | `-V`, `--version` | `flag` | Exibe a versão instalada do SafePatch e encerra. |
 | `-h`, `--help` | `flag` | Exibe a mensagem de ajuda com todos os comandos disponíveis. |
@@ -237,10 +272,9 @@ cli/
 │       ├── infrastructure/            # Implementações concretas de I/O
 │       │   ├── __init__.py
 │       │   ├── sistema_arquivos/      # Escrita atômica segura no disco (escritor_atomico.py)
-│       │   ├── leitores/              # Leitura streaming de ZIPs com proteção anti-DoS (leitor_zip.py)
+│       │   ├── leitores/              # Leitores streaming (leitor_zip, leitor_diretorio, leitor_universal)
 │       │   ├── comparacao/            # Comparação por conjuntos e filtros glob (comparador_conjuntos.py)
 │       │   ├── descompilador/         # Descompilador CFR com subprocess seguro e timeout (executor_cfr.py)
-│       │   ├── diff/                  # Motor de unified diff Git (motor_diff.py)
 │       │   └── exportadores/          # Exportadores isolados (exportador_json, markdown, html)
 │       │
 │       ├── presentation/              # Camada de apresentação e CLI

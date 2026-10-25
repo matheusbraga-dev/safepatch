@@ -14,6 +14,7 @@ class ParametrosComparacao:
     caminho_base: CaminhoPath
     caminho_alvo: CaminhoPath
     padroes_ignorar: Sequence[str] = field(default_factory=tuple)
+    padroes_filtro: Sequence[str] = field(default_factory=tuple)
     incluir_diff: bool = False
     caminho_json: Optional[CaminhoPath] = None
     caminho_md: Optional[CaminhoPath] = None

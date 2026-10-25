@@ -31,15 +31,28 @@ class MotorDiff(ProtocoloDiferenciador):
         caminho_pacote_path = Path(caminho_pacote).resolve()
 
         try:
-            with zipfile.ZipFile(caminho_pacote_path, "r") as zf:
-                info = zf.getinfo(caminho_interno)
-                if info.file_size > self.configuracoes.tamanho_maximo_descompactado:
+            if caminho_pacote_path.is_dir():
+                arquivo_alvo = caminho_pacote_path / caminho_interno
+                if not arquivo_alvo.is_file():
+                    return None
+                tamanho = arquivo_alvo.stat().st_size
+                if tamanho > self.configuracoes.tamanho_maximo_descompactado:
                     raise LimiteTamanhoExcedidoError(
                         caminho_interno,
-                        info.file_size,
+                        tamanho,
                         self.configuracoes.tamanho_maximo_descompactado,
                     )
-                raw_bytes = zf.read(caminho_interno)
+                raw_bytes = arquivo_alvo.read_bytes()
+            else:
+                with zipfile.ZipFile(caminho_pacote_path, "r") as zf:
+                    info = zf.getinfo(caminho_interno)
+                    if info.file_size > self.configuracoes.tamanho_maximo_descompactado:
+                        raise LimiteTamanhoExcedidoError(
+                            caminho_interno,
+                            info.file_size,
+                            self.configuracoes.tamanho_maximo_descompactado,
+                        )
+                    raw_bytes = zf.read(caminho_interno)
 
             # Se contiver bytes nulos, consideramos arquivo binário
             if b"\x00" in raw_bytes:

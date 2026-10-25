@@ -162,13 +162,13 @@ class TestCLI(unittest.TestCase):
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             codigo = executar_cli(["--version"])
             self.assertEqual(codigo, 0)
-            self.assertIn("safepatch 1.0.0", mock_stdout.getvalue())
+            self.assertIn("safepatch 1.1.0", mock_stdout.getvalue())
 
     def test_cli_versao_curta_flag(self):
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             codigo = executar_cli(["-V"])
             self.assertEqual(codigo, 0)
-            self.assertIn("safepatch 1.0.0", mock_stdout.getvalue())
+            self.assertIn("safepatch 1.1.0", mock_stdout.getvalue())
 
     def test_subprocesso_versao(self):
         cmd = [sys.executable, str(WORKSPACE_ROOT / "main.py"), "--version"]
@@ -180,7 +180,53 @@ class TestCLI(unittest.TestCase):
             encoding="utf-8",
         )
         self.assertEqual(res.returncode, 0)
-        self.assertIn("safepatch 1.0.0", res.stdout)
+        self.assertIn("safepatch 1.1.0", res.stdout)
+
+    def test_execucao_com_filtro_inclusao(self):
+        cmd = [
+            sys.executable,
+            str(WORKSPACE_ROOT / "main.py"),
+            "--base", str(SAMPLE_BASE),
+            "--alvo", str(SAMPLE_ALVO),
+            "-f", "*UserDTO*",
+            "--no-color",
+        ]
+        res = subprocess.run(
+            cmd,
+            cwd=str(WORKSPACE_ROOT),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("Total Modificados: 1", res.stdout)
+        self.assertIn("Total Inalterados: 0", res.stdout)
+        self.assertIn("UserDTO.class", res.stdout)
+
+    def test_execucao_com_diretorios_locais(self):
+        with tempfile.TemporaryDirectory() as dir_base, tempfile.TemporaryDirectory() as dir_alvo:
+            f1 = Path(dir_base) / "servico.properties"
+            f1.write_text("versao=1.0\n", encoding="utf-8")
+            f2 = Path(dir_alvo) / "servico.properties"
+            f2.write_text("versao=1.1\n", encoding="utf-8")
+
+            cmd = [
+                sys.executable,
+                str(WORKSPACE_ROOT / "main.py"),
+                "--base", str(dir_base),
+                "--alvo", str(dir_alvo),
+                "--no-color",
+            ]
+            res = subprocess.run(
+                cmd,
+                cwd=str(WORKSPACE_ROOT),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(res.returncode, 0)
+            self.assertIn("Total Modificados: 1", res.stdout)
+            self.assertIn("servico.properties", res.stdout)
 
 
 if __name__ == "__main__":

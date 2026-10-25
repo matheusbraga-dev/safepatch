@@ -14,24 +14,26 @@ from safepatch.infrastructure.comparacao.comparador_conjuntos import ComparadorP
 from safepatch.infrastructure.exportadores.exportador_html import ExportadorHTML
 from safepatch.infrastructure.exportadores.exportador_json import ExportadorJSON
 from safepatch.infrastructure.exportadores.exportador_markdown import ExportadorMarkdown
-from safepatch.infrastructure.leitores.leitor_zip import LeitorPacoteZip
+from safepatch.infrastructure.leitores.leitor_universal import LeitorPacoteUniversal
 
 
 class CompararPacotesCasoDeUso:
-    """Orquestra a leitura, confronto, enriquecimento e exportação de pacotes."""
+    """Orquestra a leitura, confronto, enriquecimento e exportação de pacotes e diretórios."""
 
     def __init__(
         self,
         leitor: Optional[ProtocoloLeitor] = None,
-        comparador_factory: Optional[Callable[[Optional[tuple]], ProtocoloComparador]] = None,
+        comparador_factory: Optional[Callable[..., ProtocoloComparador]] = None,
         exportador_json: Optional[ProtocoloExportador] = None,
         exportador_md: Optional[ProtocoloExportador] = None,
         exportador_html: Optional[ProtocoloExportador] = None,
         notificador: Optional[Callable[[str], None]] = None,
     ):
-        self.leitor = leitor or LeitorPacoteZip()
+        self.leitor = leitor or LeitorPacoteUniversal()
         self.comparador_factory = comparador_factory or (
-            lambda padroes: ComparadorPacotesConjuntos(padroes_ignorar=padroes)
+            lambda ignorar, filtro: ComparadorPacotesConjuntos(
+                padroes_ignorar=ignorar, padroes_filtro=filtro
+            )
         )
         self.exportador_json = exportador_json or ExportadorJSON()
         self.exportador_md = exportador_md or ExportadorMarkdown()
@@ -53,7 +55,12 @@ class CompararPacotesCasoDeUso:
 
         # 3. Comparação de inventários
         self.notificador("Analisando diferenças e detectando conflitos...")
-        comparador = self.comparador_factory(tuple(parametros.padroes_ignorar))
+        try:
+            comparador = self.comparador_factory(
+                tuple(parametros.padroes_ignorar), tuple(parametros.padroes_filtro)
+            )
+        except TypeError:
+            comparador = self.comparador_factory(tuple(parametros.padroes_ignorar))
         relatorio = comparador.comparar(
             nome_base=base_path.name,
             inventario_base=inventario_base,

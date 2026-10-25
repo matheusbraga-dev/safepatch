@@ -58,6 +58,22 @@ class TestMotorDiff(unittest.TestCase):
         self.assertIn("deleted file mode 100644", diff_rem)
         self.assertIn("-primeira linha", diff_rem)
 
+    def test_diff_modificado_com_diretorios(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as dir_base, tempfile.TemporaryDirectory() as dir_alvo:
+            f_base = os.path.join(dir_base, "app.properties")
+            with open(f_base, "w", encoding="utf-8") as f:
+                f.write("versao=1.0\n")
+
+            f_alvo = os.path.join(dir_alvo, "app.properties")
+            with open(f_alvo, "w", encoding="utf-8") as f:
+                f.write("versao=1.1\n")
+
+            linhas = self.diff_engine.diff_modificado(dir_base, dir_alvo, "app.properties")
+            texto_diff = "".join(linhas)
+            self.assertIn("-versao=1.0", texto_diff)
+            self.assertIn("+versao=1.1", texto_diff)
+
 
 if __name__ == "__main__":
     unittest.main()

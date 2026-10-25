@@ -7,6 +7,20 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.1.0] - 2026-10-25
+
+### Adicionado
+- **Suporte Direto a Diretórios Locais**: `--base` e `--alvo` agora aceitam pastas descompactadas (ex: `target/classes`, `build/classes`) permitindo comparar `pasta vs jar`, `jar vs pasta` ou `pasta vs pasta` sem precisar empacotar previamente.
+- **Filtro de Inclusão por Glob/Classe (`-f / --filtro`)**: Permite auditar apenas arquivos, classes ou pacotes específicos (ex: `-f "*UserDTO*"` ou `-f "com/exemplo/*"`). Pode ser repetido múltiplas vezes.
+- **Busca e Filtro Interativo no Relatório HTML**:
+  - Campo de busca em tempo real no dashboard HTML para filtrar arquivos instantaneamente por nome ou caminho.
+  - Botões de seleção por categoria (*Todos*, *Modificados*, *Adicionados*, *Removidos*) com contadores dinâmicos.
+  - Feedback visual de resultados encontrados e estado vazio elegante.
+  - 100% autossuficiente em Vanilla JavaScript e CSS embutidos (zero conexões de rede ou CDNs externas).
+- **Leitor Universal Polimórfico**: `LeitorPacoteUniversal` e `LeitorDiretorio` com normalização de caminhos POSIX (`/`) e leitura em streaming de 64KB garantindo consistência entre Windows e Linux.
+
+---
+
 ## [1.0.0] - 2026-10-25
 
 ### Adicionado

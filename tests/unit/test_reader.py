@@ -69,5 +69,50 @@ class TestLeitorPacoteZip(unittest.TestCase):
             reader_com_limite.mapear(jar_path)
 
 
+class TestLeitorDiretorio(unittest.TestCase):
+    def setUp(self):
+        from safepatch.infrastructure.leitores.leitor_diretorio import LeitorDiretorio
+        self.reader = LeitorDiretorio()
+
+    def test_mapear_diretorio_recursivo_com_barras_posix(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            sub = os.path.join(tmp_dir, "com", "example")
+            os.makedirs(sub, exist_ok=True)
+            arq1 = os.path.join(sub, "App.class")
+            with open(arq1, "wb") as f:
+                f.write(b"bytecode_teste")
+
+            inventario = self.reader.mapear(tmp_dir)
+            self.assertIn("com/example/App.class", inventario)
+            item = inventario["com/example/App.class"]
+            self.assertEqual(len(item.hash_sha256), 64)
+            self.assertEqual(item.tamanho_bytes, len(b"bytecode_teste"))
+
+    def test_diretorio_inexistente_lanca_excecao(self):
+        with self.assertRaises(ArquivoNaoEncontradoError):
+            self.reader.mapear("pasta_que_nao_existe_xyz_123")
+
+
+class TestLeitorPacoteUniversal(unittest.TestCase):
+    def setUp(self):
+        from safepatch.infrastructure.leitores.leitor_universal import LeitorPacoteUniversal
+        self.reader = LeitorPacoteUniversal()
+
+    def test_roteamento_polimorfico_zip_e_diretorio(self):
+        # 1. Roteia para ZIP
+        jar_path = criar_jar_temporario({"file.txt": b"ola_zip"})
+        self.addCleanup(lambda: os.path.exists(jar_path) and os.remove(jar_path))
+        inv_zip = self.reader.mapear(jar_path)
+        self.assertIn("file.txt", inv_zip)
+
+        # 2. Roteia para Diretório
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            arq = os.path.join(tmp_dir, "dir_file.txt")
+            with open(arq, "wb") as f:
+                f.write(b"ola_dir")
+            inv_dir = self.reader.mapear(tmp_dir)
+            self.assertIn("dir_file.txt", inv_dir)
+
+
 if __name__ == "__main__":
     unittest.main()

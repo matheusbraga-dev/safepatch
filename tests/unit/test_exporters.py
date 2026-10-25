@@ -76,11 +76,16 @@ class TestExporters(unittest.TestCase):
         exporter = ExportadorHTML()
         html = exporter.para_html(relatorio_xss)
 
-        # Não pode conter as tags cruas
-        self.assertNotIn("<script>", html)
+        # Não pode conter as tags maliciosas cruas nos metadados ou arquivos
+        self.assertNotIn("base<script>.jar", html)
         self.assertNotIn("<img src=x", html)
-        self.assertIn("&lt;script&gt;", html)
+        self.assertIn("base&lt;script&gt;.jar", html)
         self.assertIn("&lt;img src=x", html)
+
+        # Deve conter componentes interativos
+        self.assertIn('id="filtro-busca"', html)
+        self.assertIn('class="btn-filtro', html)
+        self.assertIn('data-tipo="adicionados"', html)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             caminho_arquivo = Path(tmp_dir) / "saida.html"

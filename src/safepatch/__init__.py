@@ -1,6 +1,6 @@
 """SafePatch: Ferramenta de auditoria e comparação de pacotes compactados (.jar, .war, .zip)."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from safepatch.application.casos_de_uso import CompararPacotesCasoDeUso
 from safepatch.application.dtos import ParametrosComparacao
@@ -26,6 +26,8 @@ from safepatch.infrastructure.diff.motor_diff import MotorDiff
 from safepatch.infrastructure.exportadores.exportador_html import ExportadorHTML
 from safepatch.infrastructure.exportadores.exportador_json import ExportadorJSON
 from safepatch.infrastructure.exportadores.exportador_markdown import ExportadorMarkdown
+from safepatch.infrastructure.leitores.leitor_diretorio import LeitorDiretorio
+from safepatch.infrastructure.leitores.leitor_universal import LeitorPacoteUniversal
 from safepatch.infrastructure.leitores.leitor_zip import LeitorPacoteZip
 from safepatch.shared.formatacao import formatar_bytes, formatar_delta
 
@@ -37,6 +39,8 @@ __all__ = [
     "ParametrosComparacao",
     "CompararPacotesCasoDeUso",
     "LeitorPacoteZip",
+    "LeitorDiretorio",
+    "LeitorPacoteUniversal",
     "ComparadorPacotesConjuntos",
     "DescompiladorCFR",
     "MotorDiff",

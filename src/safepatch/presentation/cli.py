@@ -42,6 +42,13 @@ def criar_parser() -> argparse.ArgumentParser:
 
     # Filtros e visualização
     parser.add_argument(
+        "-f",
+        "--filtro",
+        action="append",
+        default=[],
+        help="Padrão glob de arquivos ou classes a incluir na análise (ex: '*UserDTO*' ou 'com/exemplo/*'). Pode ser repetido.",
+    )
+    parser.add_argument(
         "-i",
         "--ignorar",
         action="append",
@@ -114,6 +121,7 @@ def executar_cli(argv: Optional[Sequence[str]] = None) -> int:
         caminho_base=args.base,
         caminho_alvo=args.alvo,
         padroes_ignorar=args.ignorar,
+        padroes_filtro=args.filtro,
         incluir_diff=args.diff,
         caminho_json=args.caminho_json,
         caminho_md=args.caminho_md,

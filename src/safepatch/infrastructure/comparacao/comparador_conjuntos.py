@@ -9,11 +9,27 @@ from safepatch.domain.protocolos import ProtocoloComparador
 class ComparadorPacotesConjuntos(ProtocoloComparador):
     """Compara dois inventários de pacotes e categoriza os arquivos."""
 
-    def __init__(self, padroes_ignorar: Optional[Sequence[str]] = None):
+    def __init__(
+        self,
+        padroes_ignorar: Optional[Sequence[str]] = None,
+        padroes_filtro: Optional[Sequence[str]] = None,
+    ):
         self.padroes_ignorar: List[str] = list(padroes_ignorar) if padroes_ignorar else []
+        self.padroes_filtro: List[str] = list(padroes_filtro) if padroes_filtro else []
+
+    def _corresponde_filtro(self, caminho: str) -> bool:
+        """Verifica se o caminho atende a pelo menos um dos padrões de inclusão configurados."""
+        if not self.padroes_filtro:
+            return True
+        for padrao in self.padroes_filtro:
+            if fnmatch.fnmatch(caminho, padrao) or (
+                not any(c in padrao for c in ("*", "?", "[")) and padrao in caminho
+            ):
+                return True
+        return False
 
     def _deve_ignorar(self, caminho: str) -> bool:
-        """Verifica se o caminho corresponde a algum padrão glob configurado."""
+        """Verifica se o caminho corresponde a algum padrão glob de exclusão configurado."""
         for padrao in self.padroes_ignorar:
             if fnmatch.fnmatch(caminho, padrao):
                 return True
@@ -34,6 +50,8 @@ class ComparadorPacotesConjuntos(ProtocoloComparador):
         caminhos_filtrados_alvo = set()
 
         for caminho in sorted(todos_caminhos):
+            if not self._corresponde_filtro(caminho):
+                continue
             if self._deve_ignorar(caminho):
                 relatorio.ignorados.append(caminho)
                 continue
