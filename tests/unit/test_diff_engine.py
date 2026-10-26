@@ -1,8 +1,10 @@
 """Testes unitários para o motor de diff (MotorDiff)."""
 
 import os
+import tempfile
 import unittest
-from tests.helpers import SRC_PATH, criar_jar_temporario
+from pathlib import Path
+from tests.helpers import SAMPLE_BASE, SRC_PATH, criar_jar_temporario
 
 from safepatch.infrastructure.diff.motor_diff import MotorDiff
 
@@ -73,6 +75,30 @@ class TestMotorDiff(unittest.TestCase):
             texto_diff = "".join(linhas)
             self.assertIn("-versao=1.0", texto_diff)
             self.assertIn("+versao=1.1", texto_diff)
+
+    def test_diff_jar_contra_fonte_java_local(self):
+        with tempfile.TemporaryDirectory() as dir_fonte:
+            # Cria a estrutura de código-fonte Java local na pasta
+            caminho_java = Path(dir_fonte) / "src" / "main" / "java" / "com" / "example" / "dto" / "UserDTO.java"
+            caminho_java.parent.mkdir(parents=True)
+            caminho_java.write_text(
+                "package com.example.dto;\n\n"
+                "public class UserDTO {\n"
+                "    private Long id;\n"
+                "    public String getDisplayName() {\n"
+                "        return \"Novo Método na IDE\";\n"
+                "    }\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            linhas = self.diff_engine.diff_modificado(
+                SAMPLE_BASE, dir_fonte, "com/example/dto/UserDTO.class"
+            )
+            texto_diff = "".join(linhas)
+
+            self.assertIn("diff --git a/com/example/dto/UserDTO.class b/com/example/dto/UserDTO.class", texto_diff)
+            self.assertIn("+        return \"Novo Método na IDE\";", texto_diff)
 
 
 if __name__ == "__main__":

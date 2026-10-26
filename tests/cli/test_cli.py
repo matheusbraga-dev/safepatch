@@ -162,13 +162,13 @@ class TestCLI(unittest.TestCase):
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             codigo = executar_cli(["--version"])
             self.assertEqual(codigo, 0)
-            self.assertIn("safepatch 1.1.0", mock_stdout.getvalue())
+            self.assertIn("safepatch 1.2.0", mock_stdout.getvalue())
 
     def test_cli_versao_curta_flag(self):
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             codigo = executar_cli(["-V"])
             self.assertEqual(codigo, 0)
-            self.assertIn("safepatch 1.1.0", mock_stdout.getvalue())
+            self.assertIn("safepatch 1.2.0", mock_stdout.getvalue())
 
     def test_subprocesso_versao(self):
         cmd = [sys.executable, str(WORKSPACE_ROOT / "main.py"), "--version"]
@@ -180,7 +180,7 @@ class TestCLI(unittest.TestCase):
             encoding="utf-8",
         )
         self.assertEqual(res.returncode, 0)
-        self.assertIn("safepatch 1.1.0", res.stdout)
+        self.assertIn("safepatch 1.2.0", res.stdout)
 
     def test_execucao_com_filtro_inclusao(self):
         cmd = [
@@ -227,6 +227,42 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(res.returncode, 0)
             self.assertIn("Total Modificados: 1", res.stdout)
             self.assertIn("servico.properties", res.stdout)
+
+    def test_execucao_com_codigo_fonte_java_local(self):
+        with tempfile.TemporaryDirectory() as dir_fonte:
+            caminho_java = Path(dir_fonte) / "src" / "main" / "java" / "com" / "example" / "dto" / "UserDTO.java"
+            caminho_java.parent.mkdir(parents=True)
+            caminho_java.write_text(
+                "package com.example.dto;\n\n"
+                "public class UserDTO {\n"
+                "    private Long id;\n"
+                "    public String metodoNovoIDE() {\n"
+                "        return \"alterado direto no fonte\";\n"
+                "    }\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            cmd = [
+                sys.executable,
+                str(WORKSPACE_ROOT / "main.py"),
+                "--base", str(SAMPLE_BASE),
+                "--alvo", str(dir_fonte),
+                "-f", "*UserDTO*",
+                "--diff",
+                "--no-color",
+            ]
+            res = subprocess.run(
+                cmd,
+                cwd=str(WORKSPACE_ROOT),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(res.returncode, 0)
+            self.assertIn("Total Modificados: 1", res.stdout)
+            self.assertIn("UserDTO.class", res.stdout)
+            self.assertIn("+        return \"alterado direto no fonte\";", res.stdout)
 
 
 if __name__ == "__main__":

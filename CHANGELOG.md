@@ -7,6 +7,21 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.2.0] - 2026-10-25
+
+### Adicionado
+- **Comparação Direta de Código-Fonte Java (.java / Workspace IDE) vs Pacote Compilado (.jar)**:
+  - Permite auditar alterações feitas na IDE diretamente contra o pacote de produção do cliente (`app.jar`), **sem precisar rodar `mvn package` ou `gradle build`**.
+  - Suporte a apontar para a raiz do projeto (ex: `--alvo .`), diretório de código-fonte (`--alvo src/main/java`) ou arquivo Java individual (`--alvo UserDTO.java`).
+  - Reconhecimento automático de convenções de layout Maven/Gradle (`src/main/java`, `src/main/resources`).
+  - **Extração Semântica de Pacote**: Leitura da declaração `package ...;` para mapeamento automático com a chave canônica correspondente no pacote (.class).
+  - **Comparação Semântica com Normalização de Código Java**: Desconsidera comentários humanos, blocos Javadoc, espaçamento e cabeçalhos CFR para detectar com precisão cirúrgica alterações reais de código.
+  - **Resolução de Classes Internas**: Classes internas compiladas (`Outer$Inner.class`, `Outer$1.class`) presentes no JAR base deixam de gerar falsos positivos de "removido" quando a classe externa correspondente (`Outer.java`) estiver presente no código-fonte.
+  - **Diff Unificado Cruzado**: Gera diffs estilo Git entre o código descompilado do `.class` e o código-fonte `.java` em edição na IDE.
+  - Criação do `LeitorFonteJava` e integração transparente no `LeitorPacoteUniversal`.
+
+---
+
 ## [1.1.0] - 2026-10-25
 
 ### Adicionado

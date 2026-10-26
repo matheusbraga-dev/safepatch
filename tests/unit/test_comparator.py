@@ -78,6 +78,51 @@ class TestComparadorPacotesConjuntos(unittest.TestCase):
         self.assertEqual(len(relatorio.adicionados), 0)
         self.assertEqual(len(relatorio.removidos), 0)
 
+    def test_comparacao_semantica_fonte_java_e_classes_internas(self):
+        # 1. Teste de classes internas ignoradas quando a classe externa existe no alvo
+        comparador = ComparadorPacotesConjuntos()
+        inv_base = {
+            "com/example/dto/UserDTO.class": ArquivoInfo("com/example/dto/UserDTO.class", "hash_base", 500),
+            "com/example/dto/UserDTO$Builder.class": ArquivoInfo("com/example/dto/UserDTO$Builder.class", "hash_builder", 300),
+            "com/example/dto/UserDTO$1.class": ArquivoInfo("com/example/dto/UserDTO$1.class", "hash_anon", 150),
+            "com/example/service/RemovidoService.class": ArquivoInfo("com/example/service/RemovidoService.class", "hash_rem", 200),
+        }
+        inv_alvo = {
+            "com/example/dto/UserDTO.class": ArquivoInfo(
+                "com/example/dto/UserDTO.class",
+                "hash_fonte",
+                600,
+                caminho_origem="src/main/java/com/example/dto/UserDTO.java",
+            ),
+        }
+
+        # Mock de diferenciador para simular códigos equivalentes
+        class MockDiff:
+            def obter_linhas(self, caminho_pacote, caminho_interno):
+                if caminho_interno == "com/example/dto/UserDTO.class":
+                    return ["package com.example.dto;\n", "public class UserDTO {}\n"]
+                return None
+
+        relatorio = comparador.comparar(
+            "app.jar",
+            inv_base,
+            "workspace",
+            inv_alvo,
+            caminho_base="app.jar",
+            caminho_alvo="workspace",
+            diferenciador=MockDiff(),
+        )
+
+        # Classes internas $Builder e $1 NÃO devem constar como removidas!
+        # Apenas RemovidoService.class deve ser classificado como removido.
+        self.assertEqual(len(relatorio.removidos), 1)
+        self.assertEqual(relatorio.removidos[0].caminho, "com/example/service/RemovidoService.class")
+
+        # UserDTO deve ser inalterado graças à equivalência semântica
+        self.assertEqual(len(relatorio.inalterados), 1)
+        self.assertEqual(relatorio.inalterados[0].caminho, "com/example/dto/UserDTO.class")
+        self.assertEqual(len(relatorio.modificados), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

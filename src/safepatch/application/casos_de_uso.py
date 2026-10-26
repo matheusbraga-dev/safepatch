@@ -11,6 +11,7 @@ from safepatch.domain.protocolos import (
     ProtocoloLeitor,
 )
 from safepatch.infrastructure.comparacao.comparador_conjuntos import ComparadorPacotesConjuntos
+from safepatch.infrastructure.diff.motor_diff import MotorDiff
 from safepatch.infrastructure.exportadores.exportador_html import ExportadorHTML
 from safepatch.infrastructure.exportadores.exportador_json import ExportadorJSON
 from safepatch.infrastructure.exportadores.exportador_markdown import ExportadorMarkdown
@@ -32,7 +33,9 @@ class CompararPacotesCasoDeUso:
         self.leitor = leitor or LeitorPacoteUniversal()
         self.comparador_factory = comparador_factory or (
             lambda ignorar, filtro: ComparadorPacotesConjuntos(
-                padroes_ignorar=ignorar, padroes_filtro=filtro
+                padroes_ignorar=ignorar,
+                padroes_filtro=filtro,
+                diferenciador=MotorDiff(),
             )
         )
         self.exportador_json = exportador_json or ExportadorJSON()
@@ -61,12 +64,23 @@ class CompararPacotesCasoDeUso:
             )
         except TypeError:
             comparador = self.comparador_factory(tuple(parametros.padroes_ignorar))
-        relatorio = comparador.comparar(
-            nome_base=base_path.name,
-            inventario_base=inventario_base,
-            nome_alvo=alvo_path.name,
-            inventario_alvo=inventario_alvo,
-        )
+
+        try:
+            relatorio = comparador.comparar(
+                nome_base=base_path.name,
+                inventario_base=inventario_base,
+                nome_alvo=alvo_path.name,
+                inventario_alvo=inventario_alvo,
+                caminho_base=base_path,
+                caminho_alvo=alvo_path,
+            )
+        except TypeError:
+            relatorio = comparador.comparar(
+                nome_base=base_path.name,
+                inventario_base=inventario_base,
+                nome_alvo=alvo_path.name,
+                inventario_alvo=inventario_alvo,
+            )
 
         # 4. Exportações condicionais
         if parametros.caminho_json:

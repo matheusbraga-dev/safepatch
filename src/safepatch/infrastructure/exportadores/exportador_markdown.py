@@ -55,8 +55,12 @@ class ExportadorMarkdown(ProtocoloExportador):
             for m in relatorio.modificados:
                 h_base = f"`{m.base.hash_sha256[:8]}...`"
                 h_alvo = f"`{m.alvo.hash_sha256[:8]}...`"
+                delta_txt = "Bytecode ↔ Fonte" if m.comparando_fonte_com_bytecode else m.delta_formatado
+                caminho_md = f"`{m.caminho}`"
+                if m.alvo.caminho_origem and m.alvo.caminho_origem != m.caminho:
+                    caminho_md += f"<br><sub>Fonte: `{m.alvo.caminho_origem}`</sub>"
                 linhas.append(
-                    f"| `{m.caminho}` | {m.base.tamanho_formatado} | {m.alvo.tamanho_formatado} | {m.delta_formatado} | {h_base} | {h_alvo} |"
+                    f"| {caminho_md} | {m.base.tamanho_formatado} | {m.alvo.tamanho_formatado} | {delta_txt} | {h_base} | {h_alvo} |"
                 )
             linhas.append("")
 

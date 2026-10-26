@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from tests.helpers import SRC_PATH, criar_jar_temporario
 
 from safepatch.config.configuracoes import ConfiguracoesSafePatch
@@ -112,6 +113,76 @@ class TestLeitorPacoteUniversal(unittest.TestCase):
                 f.write(b"ola_dir")
             inv_dir = self.reader.mapear(tmp_dir)
             self.assertIn("dir_file.txt", inv_dir)
+
+    def test_roteamento_para_fonte_java(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            java_file = Path(tmp_dir) / "Usuario.java"
+            java_file.write_text("package com.exemplo.modelo;\npublic class Usuario {}", encoding="utf-8")
+
+            # 1. Diretório com arquivo .java
+            inv_dir = self.reader.mapear(tmp_dir)
+            self.assertIn("com/exemplo/modelo/Usuario.class", inv_dir)
+
+            # 2. Arquivo individual .java
+            inv_file = self.reader.mapear(java_file)
+            self.assertIn("com/exemplo/modelo/Usuario.class", inv_file)
+
+
+class TestLeitorFonteJava(unittest.TestCase):
+    def setUp(self):
+        from safepatch.infrastructure.leitores.leitor_fonte import LeitorFonteJava
+        self.leitor = LeitorFonteJava()
+
+    def test_mapear_arquivo_unico_com_pacote(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            arq_java = Path(tmp_dir) / "OrderDTO.java"
+            arq_java.write_text(
+                "package com.empresa.dto;\n\npublic class OrderDTO { private Long id; }",
+                encoding="utf-8",
+            )
+            inventario = self.leitor.mapear(arq_java)
+            self.assertIn("com/empresa/dto/OrderDTO.class", inventario)
+            info = inventario["com/empresa/dto/OrderDTO.class"]
+            self.assertEqual(info.caminho, "com/empresa/dto/OrderDTO.class")
+            self.assertEqual(info.caminho_origem, "OrderDTO.java")
+            self.assertTrue(info.eh_fonte_java)
+
+    def test_mapear_workspace_com_layout_maven(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+
+            # Cria estrutura Maven
+            java_dir = root / "src" / "main" / "java" / "com" / "empresa" / "servico"
+            java_dir.mkdir(parents=True)
+            (java_dir / "MeuServico.java").write_text(
+                "package com.empresa.servico;\npublic class MeuServico {}",
+                encoding="utf-8",
+            )
+
+            res_dir = root / "src" / "main" / "resources"
+            res_dir.mkdir(parents=True)
+            (res_dir / "application.properties").write_text("app.nome=SafePatch", encoding="utf-8")
+
+            # Arquivos que devem ser ignorados
+            (root / "pom.xml").write_text("<project></project>", encoding="utf-8")
+            git_dir = root / ".git"
+            git_dir.mkdir()
+            (git_dir / "config").write_text("[core]", encoding="utf-8")
+
+            target_dir = root / "target"
+            target_dir.mkdir()
+            (target_dir / "output.log").write_text("build log", encoding="utf-8")
+
+            inventario = self.leitor.mapear(root)
+
+            # Classes e recursos esperados
+            self.assertIn("com/empresa/servico/MeuServico.class", inventario)
+            self.assertIn("application.properties", inventario)
+
+            # Itens ignorados
+            self.assertNotIn("pom.xml", inventario)
+            self.assertNotIn(".git/config", inventario)
+            self.assertNotIn("target/output.log", inventario)
 
 
 if __name__ == "__main__":

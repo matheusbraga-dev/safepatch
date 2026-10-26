@@ -76,8 +76,16 @@ class RenderizadorConsole:
             )
             itens = relatorio.modificados if self.limite is None else relatorio.modificados[: self.limite]
             for arq in itens:
-                detalhe_delta = f"({arq.base.tamanho_formatado} → {arq.alvo.tamanho_formatado} | {arq.delta_formatado})"
-                self._imprimir(f"    {arq.caminho} {self.cor_ciano}{detalhe_delta}{self.reset}")
+                if arq.comparando_fonte_com_bytecode:
+                    detalhe_delta = f"(Bytecode: {arq.base.tamanho_formatado} ↔ Fonte: {arq.alvo.tamanho_formatado})"
+                else:
+                    detalhe_delta = f"({arq.base.tamanho_formatado} → {arq.alvo.tamanho_formatado} | {arq.delta_formatado})"
+
+                origem_extra = ""
+                if arq.alvo.caminho_origem and arq.alvo.caminho_origem != arq.caminho:
+                    origem_extra = f" (fonte local: {arq.alvo.caminho_origem})"
+
+                self._imprimir(f"    {arq.caminho}{origem_extra} {self.cor_ciano}{detalhe_delta}{self.reset}")
 
                 if self.mostrar_diff and self.diferenciador and self.caminho_base and self.caminho_alvo:
                     linhas_diff = self.diferenciador.diff_modificado(

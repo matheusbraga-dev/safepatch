@@ -1,21 +1,28 @@
 """Modelos de dados imutáveis do domínio SafePatch."""
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 from safepatch.shared.formatacao import formatar_bytes, formatar_delta
 
 
 @dataclass(frozen=True)
 class ArquivoInfo:
-    """Metadados de um arquivo contido dentro de um pacote compactado."""
+    """Metadados de um arquivo contido dentro de um pacote compactado ou código-fonte."""
 
     caminho: str
     hash_sha256: str
     tamanho_bytes: int
+    caminho_origem: Optional[str] = None
 
     @property
     def tamanho_formatado(self) -> str:
         return formatar_bytes(self.tamanho_bytes)
+
+    @property
+    def eh_fonte_java(self) -> bool:
+        """Indica se este arquivo representa um código-fonte Java (.java)."""
+        caminho_ref = self.caminho_origem or self.caminho
+        return caminho_ref.lower().endswith(".java")
 
 
 @dataclass(frozen=True)
@@ -33,6 +40,11 @@ class ArquivoModificadoInfo:
     @property
     def delta_formatado(self) -> str:
         return formatar_delta(self.delta_bytes)
+
+    @property
+    def comparando_fonte_com_bytecode(self) -> bool:
+        """Indica se a comparação é entre bytecode (.class) e código-fonte (.java)."""
+        return self.base.eh_fonte_java != self.alvo.eh_fonte_java
 
 
 @dataclass

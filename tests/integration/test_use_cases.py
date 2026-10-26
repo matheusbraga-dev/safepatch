@@ -46,6 +46,48 @@ class TestCompararPacotesCasoDeUso(unittest.TestCase):
             self.assertTrue(any("Lendo pacote alvo" in m for m in mensagens))
             self.assertTrue(any("exportado para" in m for m in mensagens))
 
+    def test_execucao_jar_contra_workspace_fonte_java(self):
+        caso_de_uso = CompararPacotesCasoDeUso()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            dir_workspace = Path(tmp_dir) / "meu_projeto"
+            dir_java = dir_workspace / "src" / "main" / "java" / "com" / "example" / "dto"
+            dir_java.mkdir(parents=True)
+
+            # UserDTO modificado
+            (dir_java / "UserDTO.java").write_text(
+                "package com.example.dto;\n\n"
+                "public class UserDTO {\n"
+                "    private Long id;\n"
+                "    public String campoCustom() { return \"custom\"; }\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            # Nova classe adicionada no workspace
+            (dir_java / "NovoDTO.java").write_text(
+                "package com.example.dto;\n\n"
+                "public class NovoDTO {}\n",
+                encoding="utf-8",
+            )
+
+            parametros = ParametrosComparacao(
+                caminho_base=SAMPLE_BASE,
+                caminho_alvo=dir_workspace,
+                padroes_filtro=("*DTO*",),
+                incluir_diff=True,
+            )
+
+            relatorio = caso_de_uso.executar(parametros)
+
+            # UserDTO.class deve ser modificado
+            self.assertEqual(relatorio.total_modificados, 1)
+            self.assertEqual(relatorio.modificados[0].caminho, "com/example/dto/UserDTO.class")
+
+            # NovoDTO.class deve ser adicionado
+            self.assertEqual(relatorio.total_adicionados, 1)
+            self.assertEqual(relatorio.adicionados[0].caminho, "com/example/dto/NovoDTO.class")
+
 
 if __name__ == "__main__":
     unittest.main()

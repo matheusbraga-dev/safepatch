@@ -37,8 +37,17 @@ class ExportadorHTML(ProtocoloExportador):
         modificados_html = ""
         for m in relatorio.modificados:
             caminho_escapado = escapar_html(m.caminho)
-            sinal_classe = "badge-danger" if m.delta_bytes > 0 else "badge-info"
             diff_row = ""
+
+            if m.comparando_fonte_com_bytecode:
+                badge_delta = '<span class="badge badge-info" title="Comparando bytecode compilado com código-fonte local">Bytecode ↔ Fonte</span>'
+            else:
+                sinal_classe = "badge-danger" if m.delta_bytes > 0 else "badge-info"
+                badge_delta = f'<span class="badge {sinal_classe}">{m.delta_formatado}</span>'
+
+            rotulo_origem = ""
+            if m.alvo.caminho_origem and m.alvo.caminho_origem != m.caminho:
+                rotulo_origem = f'<br><small style="color:var(--text-muted)">Fonte: {escapar_html(m.alvo.caminho_origem)}</small>'
 
             if incluir_diff and diff_motor and caminho_base and caminho_alvo:
                 diff_linhas = diff_motor.diff_modificado(caminho_base, caminho_alvo, m.caminho)
@@ -56,10 +65,10 @@ class ExportadorHTML(ProtocoloExportador):
 
             modificados_html += f"""
             <tr class="data-row" data-tipo="modificados" data-caminho="{caminho_escapado}">
-                <td class="col-file"><code title="{caminho_escapado}">{caminho_escapado}</code></td>
+                <td class="col-file"><code title="{caminho_escapado}">{caminho_escapado}</code>{rotulo_origem}</td>
                 <td>{m.base.tamanho_formatado}</td>
                 <td>{m.alvo.tamanho_formatado}</td>
-                <td><span class="badge {sinal_classe}">{m.delta_formatado}</span></td>
+                <td>{badge_delta}</td>
                 <td><code title="{escapar_html(m.base.hash_sha256)}">{escapar_html(m.base.hash_sha256[:10])}...</code></td>
                 <td><code title="{escapar_html(m.alvo.hash_sha256)}">{escapar_html(m.alvo.hash_sha256[:10])}...</code></td>
             </tr>

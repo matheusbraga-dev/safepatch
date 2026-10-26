@@ -13,7 +13,8 @@ Zero dependências externas: construída exclusivamente com a **biblioteca padr�
 ## 🚀 Funcionalidades
 
 * ⚡ **Leitura Otimizada em Streaming**: Processa pacotes lendo blocos de 64KB sob demanda, permitindo analisar arquivos pesados com consumo mínimo de memória RAM.
-* 📁 **Suporte Híbrido a Pacotes e Pastas**: Aceita arquivos `.jar`, `.war`, `.zip` ou **diretórios locais descompactados** (ex: `target/classes`, `build/classes`). Permite comparações entre `jar vs jar`, `pasta vs jar` e `pasta vs pasta`.
+* 💡 **Comparação Direta com Código-Fonte (`.java` vs `.class`)**: Audite alterações feitas na sua IDE diretamente contra o `.jar` de produção **sem precisar compilar ou rodar build** (`mvn package`, `gradle build`). O SafePatch mapeia os pacotes Java, normaliza comentários/espaçamento e gera o diff do que você alterou.
+* 📁 **Suporte Híbrido a Pacotes, Pastas e Fontes**: Aceita arquivos `.jar`, `.war`, `.zip`, **pastas compiladas** (`target/classes`), **pastas de código-fonte** (`src/main/java`, `.`) ou arquivos `.java` individuais.
 * 🔒 **Verificação de Integridade (SHA-256)**: Compara o hash SHA-256 de cada arquivo interno para garantir a detecção exata de modificações lógicas, mesmo quando as datas de modificação ou atributos forem alterados.
 * 📊 **Cálculo de Variação (Delta)**: Exibe a diferença de tamanho (em bytes, KB, MB) para cada arquivo modificado (ex: `1.81 KB → 2.39 KB | +602 B`).
 * ☕ **Diff Descompilado no Estilo Git (`-d / --diff`)**:
@@ -174,7 +175,31 @@ safepatch --base "workspace-v1/target/classes" \
 
 ---
 
-### 6. Ignorando Metadados ou Padrões Específicos (`-i / --ignorar`)
+### 6. Comparação Direta com Código-Fonte da IDE (`.java` vs `.class` sem Build!)
+
+Você pode comparar o `.jar` de produção do cliente diretamente contra os arquivos `.java` que você está editando na sua IDE, **sem precisar rodar `mvn package` ou `gradle build`**:
+
+```bash
+# Compara o JAR do cliente diretamente contra a pasta de fontes da IDE
+safepatch --base "cliente-producao.jar" \
+          --alvo "src/main/java" \
+          --diff
+
+# Ou compare um arquivo Java específico que você acabou de alterar
+safepatch --base "cliente-producao.jar" \
+          --alvo "src/main/java/com/empresa/dto/UserDTO.java" \
+          --diff
+
+# Ou aponte para a raiz do projeto (ignora .git, target, build etc. automaticamente)
+safepatch --base "cliente-producao.jar" \
+          --alvo "." \
+          -f "*Service*" \
+          --diff
+```
+
+---
+
+### 7. Ignorando Metadados ou Padrões Específicos (`-i / --ignorar`)
 
 Para evitar falsos positivos gerados por manifests de build ou documentação:
 
@@ -187,7 +212,7 @@ safepatch --base "pacote_v1.jar" \
 
 ---
 
-### 7. Modo Verboso e Controle de Limite de Exibição
+### 8. Modo Verboso e Controle de Limite de Exibição
 
 Por padrão, a CLI exibe no máximo 10 arquivos por categoria no console para evitar poluição. Para ver todos os arquivos:
 
@@ -201,7 +226,7 @@ safepatch --base "base.jar" --alvo "alvo.jar" --limite 25
 
 ---
 
-### 8. Integração Contínua (CI/CD)
+### 9. Integração Contínua (CI/CD)
 
 Use a flag `--fail-on-conflict` para interromper scripts de automação se houver alterações inesperadas:
 
@@ -222,8 +247,8 @@ safepatch --base "base.jar" --alvo "alvo.jar" --fail-on-conflict
 
 | Parâmetro | Tipo | Descrição |
 | :--- | :---: | :--- |
-| `--base` | `string` | **Obrigatório.** Caminho para o pacote ou diretório base de referência (`.jar`, `.war`, `.zip` ou pasta). |
-| `--alvo` | `string` | **Obrigatório.** Caminho para o pacote ou diretório alvo a ser comparado (`.jar`, `.war`, `.zip` ou pasta). |
+| `--base` | `string` | **Obrigatório.** Caminho para o pacote, diretório compilado ou código-fonte (`.jar`, `.war`, `.zip`, pasta ou `.java`). |
+| `--alvo` | `string` | **Obrigatório.** Caminho para o pacote, diretório compilado ou código-fonte (`.jar`, `.war`, `.zip`, pasta ou `.java`). |
 | `-f`, `--filtro` | `string` | Padrão glob de arquivos ou classes a incluir na análise (ex: `'*UserDTO*'`). Pode ser repetido. |
 | `-i`, `--ignorar` | `string` | Padrão glob de arquivos a ignorar (ex: `'META-INF/*'`). Pode ser repetido. |
 | `-d`, `--diff` | `flag` | Exibe a diferença detalhada do conteúdo estilo Git (linhas adicionadas e removidas em código Java legível). |
@@ -272,9 +297,10 @@ cli/
 │       ├── infrastructure/            # Implementações concretas de I/O
 │       │   ├── __init__.py
 │       │   ├── sistema_arquivos/      # Escrita atômica segura no disco (escritor_atomico.py)
-│       │   ├── leitores/              # Leitores streaming (leitor_zip, leitor_diretorio, leitor_universal)
+│       │   ├── leitores/              # Leitores streaming (leitor_zip, leitor_diretorio, leitor_fonte, leitor_universal)
 │       │   ├── comparacao/            # Comparação por conjuntos e filtros glob (comparador_conjuntos.py)
 │       │   ├── descompilador/         # Descompilador CFR com subprocess seguro e timeout (executor_cfr.py)
+│       │   ├── diff/                  # Motor de unified diff Git (motor_diff.py)
 │       │   └── exportadores/          # Exportadores isolados (exportador_json, markdown, html)
 │       │
 │       ├── presentation/              # Camada de apresentação e CLI
@@ -285,6 +311,7 @@ cli/
 │       ├── shared/                    # Utilitários compartilhados
 │       │   ├── __init__.py
 │       │   ├── formatacao.py          # Formatação de bytes, deltas e diff colorido
+│       │   ├── normalizador_java.py   # Normalização e extração semântica de código Java
 │       │   └── sanitizacao.py         # Sanitização e escape HTML contra XSS
 │       │
 │       └── bin/                       # Binários embutidos

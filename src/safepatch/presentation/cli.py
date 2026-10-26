@@ -32,12 +32,12 @@ def criar_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base",
         required=True,
-        help="Caminho para o pacote base (ex: cliente_v1.jar)",
+        help="Caminho para o pacote, diretório ou código-fonte base (ex: cliente.jar, pasta ou User.java)",
     )
     parser.add_argument(
         "--alvo",
         required=True,
-        help="Caminho para o pacote alvo (ex: pacote_atualizacao.jar)",
+        help="Caminho para o pacote, diretório ou código-fonte alvo (ex: src/main/java, pasta ou User.java)",
     )
 
     # Filtros e visualização
