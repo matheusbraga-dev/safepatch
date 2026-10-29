@@ -481,7 +481,7 @@ cli/
 │       └── bin/                       # Binários embutidos
 │           └── cfr.jar                # Descompilador CFR
 │
-└── tests/                             # Suíte de testes automatizados (99 testes)
+└── tests/                             # Suíte de testes automatizados (127 testes)
     ├── __init__.py
     ├── helpers.py                     # Fixtures e geradores temporários
     ├── unit/                          # Testes unitários (auditoria, remoto, navegador, etc.)

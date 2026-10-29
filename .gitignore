@@ -22,3 +22,7 @@ build/
 dist/
 *.egg-info/
 *.egg
+
+# Cobertura de Testes
+.coverage
+htmlcov/

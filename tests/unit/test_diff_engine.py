@@ -100,6 +100,61 @@ class TestMotorDiff(unittest.TestCase):
             self.assertIn("diff --git a/com/example/dto/UserDTO.class b/com/example/dto/UserDTO.class", texto_diff)
             self.assertIn("+        return \"Novo Método na IDE\";", texto_diff)
 
+    def test_diff_conteudo_logico_identico(self):
+        jar_base = criar_jar_temporario({"app.properties": "versao=1.0\n"})
+        jar_alvo = criar_jar_temporario({"app.properties": "versao=1.0\n"})
+        self.addCleanup(lambda: os.path.exists(jar_base) and os.remove(jar_base))
+        self.addCleanup(lambda: os.path.exists(jar_alvo) and os.remove(jar_alvo))
+
+        linhas = self.diff_engine.diff_modificado(jar_base, jar_alvo, "app.properties")
+        texto_diff = "".join(linhas)
+        self.assertIn("# Conteúdo lógico idêntico ou apenas atributos de compilação alterados", texto_diff)
+
+    def test_diff_adicionado_e_removido_binarios(self):
+        jar = criar_jar_temporario({"icone.ico": b"\x00\x00\x01\x00"})
+        self.addCleanup(lambda: os.path.exists(jar) and os.remove(jar))
+
+        diff_add = "".join(self.diff_engine.diff_adicionado(jar, "icone.ico"))
+        self.assertIn("Binary file b/icone.ico added", diff_add)
+
+        diff_rem = "".join(self.diff_engine.diff_removido(jar, "icone.ico"))
+        self.assertIn("Binary file a/icone.ico deleted", diff_rem)
+
+    def test_diff_aviso_java_sem_jre(self):
+        from unittest.mock import MagicMock
+        descompilador_mock = MagicMock()
+        descompilador_mock.java_cmd = None
+        descompilador_mock.descompilar.return_value = None
+
+        engine = MotorDiff(descompilador=descompilador_mock)
+        jar = criar_jar_temporario({"Dummy.class": b"\xca\xfe\xba\xbe"})
+        self.addCleanup(lambda: os.path.exists(jar) and os.remove(jar))
+
+        diff = "".join(engine.diff_modificado(jar, jar, "Dummy.class"))
+        self.assertIn("[AVISO] Java (JRE) não encontrado no PATH", diff)
+
+    def test_obter_linhas_arquivo_java_direto(self):
+        with tempfile.NamedTemporaryFile(suffix=".java", delete=False) as tmp:
+            tmp.write(b"public class Direto {}\n")
+            tmp_path = Path(tmp.name)
+
+        try:
+            linhas = self.diff_engine.obter_linhas(tmp_path, "Direto.java")
+            self.assertIsNotNone(linhas)
+            self.assertEqual(linhas[0].strip(), "public class Direto {}")
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    def test_obter_linhas_recurso_em_src_main_resources(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            res_dir = Path(tmp_dir) / "src" / "main" / "resources"
+            res_dir.mkdir(parents=True)
+            (res_dir / "schema.sql").write_text("CREATE TABLE t (id INT);\n", encoding="utf-8")
+
+            linhas = self.diff_engine.obter_linhas(tmp_dir, "schema.sql")
+            self.assertIsNotNone(linhas)
+            self.assertIn("CREATE TABLE", linhas[0])
+
 
 if __name__ == "__main__":
     unittest.main()

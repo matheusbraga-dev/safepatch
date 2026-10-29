@@ -1,5 +1,6 @@
 """Testes unitários para o módulo de auditoria e compliance em arquivo oculto (Passo 7)."""
 
+import io
 import json
 import tempfile
 import unittest
@@ -123,7 +124,6 @@ class TestCLIAuditoria(unittest.TestCase):
             gravador = GravadorAuditoriaJSONL(caminho_arquivo=caminho_log)
             gravador.registrar("teste_cli", {"chave": "valor"})
 
-            import io
             with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
                 codigo = executar_cli([
                     "--listar-auditoria",
@@ -134,6 +134,58 @@ class TestCLIAuditoria(unittest.TestCase):
                 dados = json.loads(mock_stdout.getvalue())
                 self.assertEqual(len(dados), 1)
                 self.assertEqual(dados[0]["operacao"], "teste_cli")
+
+    def test_cli_listar_auditoria_console_com_dados(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            caminho_log = Path(tmp_dir) / ".auditoria.jsonl"
+            gravador = GravadorAuditoriaJSONL(caminho_arquivo=caminho_log)
+            gravador.registrar(
+                "comparacao",
+                {
+                    "pacote_base": "app-base.jar",
+                    "pacote_alvo": "app-alvo.jar",
+                    "total_modificados": 3,
+                    "tem_conflitos": True,
+                },
+                sucesso=True,
+            )
+            gravador.registrar(
+                "deploy",
+                {
+                    "origem_local": "app.jar",
+                    "destino_remoto": "deploy@server:/app.jar",
+                },
+                sucesso=False,
+            )
+
+            import io
+            with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                codigo = executar_cli([
+                    "--listar-auditoria",
+                    "--arquivo-auditoria", str(caminho_log),
+                ])
+                self.assertEqual(codigo, 0)
+                saida = mock_stdout.getvalue()
+                self.assertIn("HISTÓRICO DE AUDITORIA", saida)
+                self.assertIn("app-base.jar", saida)
+                self.assertIn("Modificados: 3", saida)
+                self.assertIn("Origem: app.jar", saida)
+
+    def test_leitura_ignora_linhas_corrompidas(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            caminho_log = Path(tmp_dir) / ".auditoria.jsonl"
+            caminho_log.write_text("linha de texto corrompida\n{\"operacao\": \"valida\", \"sucesso\": true}\n", encoding="utf-8")
+
+            gravador = GravadorAuditoriaJSONL(caminho_arquivo=caminho_log)
+            historico = gravador.ler_historico()
+            self.assertEqual(len(historico), 1)
+            self.assertEqual(historico[0]["operacao"], "valida")
+
+    def test_falha_de_escrita_nao_lanca_excecao(self):
+        gravador = GravadorAuditoriaJSONL(caminho_arquivo=Path("C:/caminho/impossivel/sem_permissao/.log"))
+        with patch("sys.stderr", new_callable=io.StringIO):
+            # Não deve lançar exceção devido ao failsafe
+            gravador.registrar("operacao", {"teste": 1})
 
 
 if __name__ == "__main__":

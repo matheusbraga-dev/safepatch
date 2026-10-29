@@ -126,6 +126,74 @@ class TestCompararPacotesCasoDeUso(unittest.TestCase):
             self.assertTrue(copia_backup.exists())
             self.assertEqual(copia_backup.stat().st_size, SAMPLE_BASE.stat().st_size)
 
+    def test_obter_diff_arquivo_variacoes_status(self):
+        from tests.helpers import criar_jar_temporario
+        import os
+
+        jar_base = criar_jar_temporario({
+            "mesmo.txt": "conteudo igual\n",
+            "apenas_base.txt": "linha antiga\n",
+        })
+        jar_alvo = criar_jar_temporario({
+            "mesmo.txt": "conteudo igual\n",
+            "apenas_alvo.txt": "linha nova\n",
+        })
+        self.addCleanup(lambda: os.path.exists(jar_base) and os.remove(jar_base))
+        self.addCleanup(lambda: os.path.exists(jar_alvo) and os.remove(jar_alvo))
+
+        caso_de_uso = CompararPacotesCasoDeUso()
+
+        # Inalterado
+        res_inalterado = caso_de_uso.obter_diff_arquivo(jar_base, jar_alvo, "mesmo.txt")
+        self.assertEqual(res_inalterado["status"], "inalterado")
+
+        # Adicionado
+        res_add = caso_de_uso.obter_diff_arquivo(jar_base, jar_alvo, "apenas_alvo.txt")
+        self.assertEqual(res_add["status"], "adicionado")
+        self.assertIn("+linha nova", res_add["diff"])
+
+        # Removido
+        res_rem = caso_de_uso.obter_diff_arquivo(jar_base, jar_alvo, "apenas_base.txt")
+        self.assertEqual(res_rem["status"], "removido")
+        self.assertIn("-linha antiga", res_rem["diff"])
+
+    def test_obter_diff_arquivo_busca_tolerante_e_inexistente(self):
+        from safepatch.domain.excecoes import ArquivoNaoEncontradoError
+
+        caso_de_uso = CompararPacotesCasoDeUso()
+
+        # Busca tolerante (pelo sufixo do caminho da classe)
+        res_tolerante = caso_de_uso.obter_diff_arquivo(
+            SAMPLE_BASE, SAMPLE_ALVO, "UserDTO.class"
+        )
+        self.assertEqual(res_tolerante["caminho"], "com/example/dto/UserDTO.class")
+        self.assertEqual(res_tolerante["status"], "modificado")
+
+        # Arquivo inexistente em ambos
+        with self.assertRaises(ArquivoNaoEncontradoError):
+            caso_de_uso.obter_diff_arquivo(SAMPLE_BASE, SAMPLE_ALVO, "nao_existe.txt")
+
+    def test_executar_com_erro_registra_auditoria_falha(self):
+        from unittest.mock import MagicMock
+        from safepatch.domain.excecoes import PacoteInvalidoError
+
+        auditor_mock = MagicMock()
+        caso_de_uso = CompararPacotesCasoDeUso(auditor=auditor_mock)
+
+        parametros = ParametrosComparacao(
+            caminho_base="inexistente_123.jar",
+            caminho_alvo=SAMPLE_ALVO,
+        )
+
+        with self.assertRaises(PacoteInvalidoError):
+            caso_de_uso.executar(parametros)
+
+        auditor_mock.registrar.assert_called_once()
+        args = auditor_mock.registrar.call_args[1]
+        self.assertEqual(args["operacao"], "comparacao")
+        self.assertFalse(args["sucesso"])
+        self.assertIsNotNone(args.get("erro"))
+
 
 if __name__ == "__main__":
     unittest.main()

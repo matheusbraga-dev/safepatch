@@ -432,6 +432,58 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(dados["status"], "erro")
             self.assertIn("Falha de rede", dados["mensagem"])
 
+    def test_cli_listar_remoto_console(self):
+        from safepatch.infrastructure.remoto.transporte import ItemRemotoInfo
+        itens_mock = [ItemRemotoInfo(nome="app.jar", caminho="/opt/app/app.jar", eh_diretorio=False)]
+        with patch("safepatch.infrastructure.remoto.resolvedor_ssh.ResolvedorCaminhoRemoto.listar_remoto", return_value=itens_mock), \
+             patch("safepatch.presentation.navegador_cli.NavegadorRemotoTerminal.exibir_listagem") as mock_exibir:
+            codigo = executar_cli(["--listar-remoto", "deploy@servidor:/opt/app"])
+            self.assertEqual(codigo, 0)
+            mock_exibir.assert_called_once()
+
+    def test_cli_navegar_remoto_json(self):
+        with patch("safepatch.presentation.navegador_cli.NavegadorRemotoTerminal.navegar_interativo", return_value="/opt/app/app.jar"), \
+             patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            codigo = executar_cli(["--navegar-remoto", "deploy@servidor:/opt/app", "--json", "-"])
+            self.assertEqual(codigo, 0)
+            dados = json.loads(mock_stdout.getvalue())
+            self.assertEqual(dados["status"], "sucesso")
+            self.assertEqual(dados["selecionado"], "/opt/app/app.jar")
+
+    def test_cli_publicar_console_sucesso(self):
+        resultado_mock = {
+            "status": "sucesso",
+            "origem_local": "app.jar",
+            "destino_remoto": "ssh://deploy@servidor/opt/app.jar",
+            "backup_remoto": "/opt/app.jar.bak_20261028",
+            "sha256": "abcdef123456",
+            "tamanho_bytes": 1024,
+        }
+        with patch("safepatch.infrastructure.remoto.resolvedor_ssh.ResolvedorCaminhoRemoto.publicar_remoto", return_value=resultado_mock), \
+             patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            codigo = executar_cli(["--publicar", "app.jar", "deploy@servidor:/opt/app.jar"])
+            self.assertEqual(codigo, 0)
+            saida = mock_stdout.getvalue()
+            self.assertIn("Publicação remota concluída com sucesso", saida)
+            self.assertIn("abcdef123456", saida)
+
+    def test_cli_falta_argumentos_obrigatorios_retorna_2(self):
+        with patch("sys.stderr", new_callable=io.StringIO):
+            codigo = executar_cli([])
+            self.assertEqual(codigo, 2)
+
+    def test_cli_diff_arquivo_inalterado(self):
+        res_mock = {"status": "inalterado", "caminho": "app.properties", "linhas": []}
+        with patch("safepatch.application.casos_de_uso.CompararPacotesCasoDeUso.obter_diff_arquivo", return_value=res_mock), \
+             patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+            codigo = executar_cli([
+                "--base", str(SAMPLE_BASE),
+                "--alvo", str(SAMPLE_ALVO),
+                "--diff-arquivo", "app.properties",
+            ])
+            self.assertEqual(codigo, 0)
+            self.assertIn("está inalterado", mock_stdout.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

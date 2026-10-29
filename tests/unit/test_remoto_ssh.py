@@ -379,5 +379,160 @@ class TestResolvedorPublicacaoERollback(unittest.TestCase):
             tmp_path.unlink(missing_ok=True)
 
 
+class TestTransporteParamiko(unittest.TestCase):
+    def test_falha_sem_paramiko_instalado(self):
+        with patch("safepatch.infrastructure.remoto.transporte_paramiko.TEM_PARAMIKO", False):
+            from safepatch.infrastructure.remoto.transporte_paramiko import TransporteParamiko
+            with self.assertRaises(ImportError) as ctx:
+                TransporteParamiko()
+            self.assertIn("paramiko' não está instalada", str(ctx.exception))
+
+    def test_operacoes_paramiko_mockadas(self):
+        mock_paramiko = MagicMock()
+        mock_cliente = MagicMock()
+        mock_paramiko.SSHClient.return_value = mock_cliente
+        mock_sftp = MagicMock()
+        mock_cliente.open_sftp.return_value = mock_sftp
+
+        with patch("safepatch.infrastructure.remoto.transporte_paramiko.TEM_PARAMIKO", True), \
+             patch("safepatch.infrastructure.remoto.transporte_paramiko.paramiko", mock_paramiko):
+            from safepatch.infrastructure.remoto.transporte_paramiko import TransporteParamiko
+            transporte = TransporteParamiko()
+            destino = InfoDestinoSSH(host="servidor", caminho_remoto="/opt/app.jar", usuario="user", senha="pwd")
+
+            # 1. Download
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_dest = Path(tmp.name)
+            try:
+                transporte.baixar_arquivo(destino, tmp_dest)
+                mock_sftp.get.assert_called_once()
+            finally:
+                tmp_dest.unlink(missing_ok=True)
+
+            # 2. Upload
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(b"patch")
+                tmp_orig = Path(tmp.name)
+            try:
+                transporte.enviar_arquivo(tmp_orig, destino)
+                mock_sftp.put.assert_called_once()
+            finally:
+                tmp_orig.unlink(missing_ok=True)
+
+            # 3. Execução de comando
+            mock_channel = MagicMock()
+            mock_channel.recv_exit_status.return_value = 0
+            mock_stdout = MagicMock()
+            mock_stdout.channel = mock_channel
+            mock_stdout.read.return_value = b"ok"
+            mock_stderr = MagicMock()
+            mock_stderr.read.return_value = b""
+            mock_cliente.exec_command.return_value = (MagicMock(), mock_stdout, mock_stderr)
+
+            cod, out, err = transporte.executar_comando(destino, "ls")
+            self.assertEqual(cod, 0)
+            self.assertEqual(out, "ok")
+
+            # 4. Cálculo de SHA-256 via utilitário remoto
+            mock_stdout.read.return_value = b"b" * 64
+            sha = transporte.calcular_sha256(destino)
+            self.assertEqual(sha, "b" * 64)
+
+            # 5. Listagem de diretório
+            attr_pasta = MagicMock(filename="libs", st_mode=0o040755, st_size=0, st_mtime=1600000000)
+            attr_arquivo = MagicMock(filename="app.jar", st_mode=0o100644, st_size=2048, st_mtime=1600000000)
+            mock_sftp.listdir_attr.return_value = [attr_pasta, attr_arquivo]
+
+            itens = transporte.listar_diretorio(destino, "/opt")
+            self.assertEqual(len(itens), 2)
+            self.assertTrue(itens[0].eh_diretorio)
+            self.assertEqual(itens[0].nome, "libs")
+            self.assertFalse(itens[1].eh_diretorio)
+            self.assertEqual(itens[1].nome, "app.jar")
+
+    def test_paramiko_erros_autenticacao_e_conexao(self):
+        mock_paramiko = MagicMock()
+        mock_cliente = MagicMock()
+        mock_paramiko.SSHClient.return_value = mock_cliente
+
+        class AuthException(Exception):
+            pass
+        mock_paramiko.AuthenticationException = AuthException
+        mock_cliente.connect.side_effect = AuthException("Senha incorreta")
+
+        with patch("safepatch.infrastructure.remoto.transporte_paramiko.TEM_PARAMIKO", True), \
+             patch("safepatch.infrastructure.remoto.transporte_paramiko.paramiko", mock_paramiko):
+            from safepatch.infrastructure.remoto.transporte_paramiko import TransporteParamiko
+            transporte = TransporteParamiko()
+            destino = InfoDestinoSSH(host="servidor", caminho_remoto="/opt/app.jar", usuario="user", senha="pwd")
+
+            with self.assertRaises(AutenticacaoSSHError):
+                transporte._criar_cliente(destino)
+
+            mock_cliente.connect.side_effect = ConnectionResetError("Conexão recusada")
+            with self.assertRaises(TransferenciaRemotaError):
+                transporte._criar_cliente(destino)
+
+    def test_paramiko_sha256_streaming_fallback(self):
+        mock_paramiko = MagicMock()
+        mock_cliente = MagicMock()
+        mock_paramiko.SSHClient.return_value = mock_cliente
+        mock_sftp = MagicMock()
+        mock_cliente.open_sftp.return_value = mock_sftp
+
+        # Simula comando falhando (retorno 1)
+        mock_channel = MagicMock()
+        mock_channel.recv_exit_status.return_value = 1
+        mock_stdout = MagicMock()
+        mock_stdout.channel = mock_channel
+        mock_stdout.read.return_value = b""
+        mock_cliente.exec_command.return_value = (MagicMock(), mock_stdout, MagicMock())
+
+        # Simula leitura streaming SFTP
+        arquivo_simulado = MagicMock()
+        arquivo_simulado.read.side_effect = [b"conteudo do jar remoto", b""]
+        mock_sftp.open.return_value.__enter__.return_value = arquivo_simulado
+
+        with patch("safepatch.infrastructure.remoto.transporte_paramiko.TEM_PARAMIKO", True), \
+             patch("safepatch.infrastructure.remoto.transporte_paramiko.paramiko", mock_paramiko):
+            from safepatch.infrastructure.remoto.transporte_paramiko import TransporteParamiko
+            transporte = TransporteParamiko()
+            destino = InfoDestinoSSH(host="servidor", caminho_remoto="/opt/app.jar")
+
+            import hashlib
+            hash_esperado = hashlib.sha256(b"conteudo do jar remoto").hexdigest().lower()
+
+            sha = transporte.calcular_sha256(destino)
+            self.assertEqual(sha, hash_esperado)
+
+
+class TestTransporteNativoErros(unittest.TestCase):
+    @patch("subprocess.run")
+    def test_enviar_arquivo_erro_permissao(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Permission denied (publickey)")
+        transporte = TransporteNativoOpenSSH(binario_scp="/usr/bin/scp")
+        destino = InfoDestinoSSH(host="servidor", caminho_remoto="/opt/app.jar")
+
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b"dados")
+            tmp_path = Path(tmp.name)
+
+        try:
+            with self.assertRaises(AutenticacaoSSHError):
+                transporte.enviar_arquivo(tmp_path, destino)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    @patch.object(TransporteNativoOpenSSH, "executar_comando")
+    def test_calcular_sha256_erro_retorno_invalido(self, mock_exec):
+        mock_exec.return_value = (0, "saida sem hash valido", "")
+        transporte = TransporteNativoOpenSSH()
+        destino = InfoDestinoSSH(host="servidor", caminho_remoto="/opt/app.jar")
+
+        with self.assertRaises(TransferenciaRemotaError) as ctx:
+            transporte.calcular_sha256(destino)
+        self.assertIn("Saída inesperada ao calcular SHA-256", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
