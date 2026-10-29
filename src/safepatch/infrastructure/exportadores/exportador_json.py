@@ -1,6 +1,7 @@
 """Exportador de relatório de comparação em formato JSON estruturado."""
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -95,6 +96,23 @@ class ExportadorJSON(ProtocoloExportador):
 
         return resultado
 
+    def para_json(
+        self,
+        relatorio: RelatorioComparacao,
+        incluir_diff: bool = False,
+        caminho_base: Optional[CaminhoPath] = None,
+        caminho_alvo: Optional[CaminhoPath] = None,
+        indent: Optional[int] = 2,
+    ) -> str:
+        """Serializa o relatório diretamente para uma string JSON formatada."""
+        dados = self.para_dict(
+            relatorio,
+            incluir_diff=incluir_diff,
+            caminho_base=caminho_base,
+            caminho_alvo=caminho_alvo,
+        )
+        return json.dumps(dados, indent=indent, ensure_ascii=False)
+
     def exportar(
         self,
         relatorio: RelatorioComparacao,
@@ -103,12 +121,15 @@ class ExportadorJSON(ProtocoloExportador):
         caminho_base: Optional[CaminhoPath] = None,
         caminho_alvo: Optional[CaminhoPath] = None,
     ) -> None:
-        """Gera e grava o relatório em arquivo JSON de forma atômica."""
-        dados = self.para_dict(
+        """Gera e grava o relatório em arquivo JSON (ou no stdout se caminho_arquivo for '-')."""
+        conteudo = self.para_json(
             relatorio,
             incluir_diff=incluir_diff,
             caminho_base=caminho_base,
             caminho_alvo=caminho_alvo,
         )
-        conteudo = json.dumps(dados, indent=2, ensure_ascii=False)
-        escrever_arquivo_atomico(caminho_arquivo, conteudo)
+        if str(caminho_arquivo).strip() == "-":
+            sys.stdout.write(conteudo + "\n")
+            sys.stdout.flush()
+        else:
+            escrever_arquivo_atomico(caminho_arquivo, conteudo)

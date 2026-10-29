@@ -61,3 +61,15 @@ class DescompilacaoTimeoutError(DescompilacaoError):
 
 class ExportacaoError(SafePatchError):
     """Erro durante a exportação de relatórios."""
+
+
+class ConexaoSSHError(SafePatchError):
+    """Erro base para operações de conexão e transferência SSH."""
+
+
+class AutenticacaoSSHError(ConexaoSSHError):
+    """Erro lançado quando a autenticação SSH falha (chave ou senha inválida)."""
+
+
+class TransferenciaRemotaError(ConexaoSSHError):
+    """Erro lançado durante a transferência de arquivos remotos via SSH/SFTP/SCP."""

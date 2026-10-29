@@ -88,6 +88,44 @@ class TestCompararPacotesCasoDeUso(unittest.TestCase):
             self.assertEqual(relatorio.total_adicionados, 1)
             self.assertEqual(relatorio.adicionados[0].caminho, "com/example/dto/NovoDTO.class")
 
+    def test_execucao_com_pacote_remoto_ssh(self):
+        from unittest.mock import MagicMock
+        from safepatch.infrastructure.remoto.resolvedor_ssh import ResolvedorCaminhoRemoto
+
+        transporte_mock = MagicMock()
+        def simular_download(destino, caminho_destino_local, notificador_progresso=None):
+            caminho_destino_local.write_bytes(SAMPLE_BASE.read_bytes())
+            return caminho_destino_local
+
+        transporte_mock.baixar_arquivo.side_effect = simular_download
+
+        resolvedor = ResolvedorCaminhoRemoto(transporte=transporte_mock)
+        caso_de_uso = CompararPacotesCasoDeUso(resolvedor_remoto=resolvedor)
+
+        with tempfile.TemporaryDirectory() as dir_backup:
+            parametros = ParametrosComparacao(
+                caminho_base="deploy@servidor.cliente.com:/opt/producao/app.jar",
+                caminho_alvo=SAMPLE_ALVO,
+                dir_copia_local=dir_backup,
+            )
+
+            relatorio = caso_de_uso.executar(parametros)
+
+            self.assertEqual(relatorio.total_modificados, 1)
+            self.assertEqual(relatorio.total_inalterados, 7)
+
+            # Valida que o transporte remoto foi chamado com a URI correta
+            transporte_mock.baixar_arquivo.assert_called_once()
+            destino_chamado = transporte_mock.baixar_arquivo.call_args[1]["destino"]
+            self.assertEqual(destino_chamado.host, "servidor.cliente.com")
+            self.assertEqual(destino_chamado.usuario, "deploy")
+            self.assertEqual(destino_chamado.caminho_remoto, "/opt/producao/app.jar")
+
+            # Valida cópia de backup do original (Passo 6)
+            copia_backup = Path(dir_backup) / "app.jar"
+            self.assertTrue(copia_backup.exists())
+            self.assertEqual(copia_backup.stat().st_size, SAMPLE_BASE.stat().st_size)
+
 
 if __name__ == "__main__":
     unittest.main()

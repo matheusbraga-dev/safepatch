@@ -19,3 +19,10 @@ class ParametrosComparacao:
     caminho_json: Optional[CaminhoPath] = None
     caminho_md: Optional[CaminhoPath] = None
     caminho_html: Optional[CaminhoPath] = None
+    diff_arquivo: Optional[str] = None
+    chave_ssh: Optional[str] = None
+    porta_ssh: Optional[int] = None
+    senha_ssh: Optional[str] = None
+    dir_copia_local: Optional[str] = None
+    desativar_auditoria: bool = False
+    caminho_auditoria: Optional[CaminhoPath] = None

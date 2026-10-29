@@ -13,6 +13,24 @@ Zero dependências externas: construída exclusivamente com a **biblioteca padr�
 ## 🚀 Funcionalidades
 
 * ⚡ **Leitura Otimizada em Streaming**: Processa pacotes lendo blocos de 64KB sob demanda, permitindo analisar arquivos pesados com consumo mínimo de memória RAM.
+* 🌐 **Conexão Remota SSH/SFTP Híbrida**: Audite pacotes diretamente no servidor remoto do cliente sem depender de download manual via WinSCP. Suporta sintaxe SCP clássica (`usuario@servidor:/caminho/app.jar`) e URIs SSH (`ssh://usuario:senha@servidor:porta/caminho/app.jar`).
+  * **Zero Dependências**: Utiliza automaticamente o cliente OpenSSH nativo do sistema operacional (`scp`/`ssh`).
+  * **Modo Paramiko Opcional**: Suporte a SFTP de alta performance via `pip install safepatch[ssh]`.
+* 🧭 **Navegação e Exploração Remota de Diretórios**:
+  * **CLI Interativa**: Explore pastas do servidor remoto diretamente no terminal usando as **setas do teclado** (`↑`/`↓`), <kbd>Enter</kbd> para navegar ou selecionar arquivos `.jar`/`.war`, e <kbd>Backspace</kbd> para subir de pasta (`--navegar-remoto`).
+  * **Saída Tabular ou JSON**: Exibe os itens no terminal ou emite JSON estruturado sob demanda para alimentar árvores de navegação em GUIs externas (`--listar-remoto`).
+* 🚀 **Publicação Reversa e Deploy Seguro com Rollback Automático**:
+  * Envia o pacote corrigido e aprovado de volta para o servidor do cliente (`--publicar`).
+  * **Backup Remoto Automático**: Cria uma cópia com timestamp (`app.jar.bak_YYYYMMDD_HHMMSS`) antes de substituir o arquivo original.
+  * **Validação de Integridade Pós-Deploy**: Valida o hash SHA-256 local contra o hash gerado no servidor remoto.
+  * **Rollback Automático Imediato**: Restaura o arquivo original instantaneamente caso seja detectada divergência de integridade.
+* 🖥️ **Pronto para Integração com GUIs Externas (Java Desktop, Flutter, C#/.NET)**:
+  * **JSON no stdout (`--json -` / `--json-stdout`)**: Roteia o relatório estruturado puramente no `stdout`, enviando mensagens informativas para o `stderr`.
+  * **Streaming de Progresso NDJSON (`--eventos-progresso`)**: Emite eventos JSON linha a linha no `stderr` para alimentar barras de progresso no frontend em tempo real.
+  * **Diff Sob Demanda em Milissegundos (`--diff-arquivo`)**: Gera o diff descompilado exclusivamente para o arquivo inspecionado no momento pelo usuário na GUI (*Lazy Loading*).
+* 🛡️ **Auditoria de Compliance em Arquivo Oculto**:
+  * Registra operações de auditoria, diff e deploy em log imutável append-only JSONL (`~/.safepatch/.auditoria.jsonl`) com timestamp UTC, usuário, máquina e hashes.
+  * No Windows, define automaticamente o atributo de sistema de arquivo oculto. Consulta rápida via `--listar-auditoria`.
 * 💡 **Comparação Direta com Código-Fonte (`.java` vs `.class`)**: Audite alterações feitas na sua IDE diretamente contra o `.jar` de produção **sem precisar compilar ou rodar build** (`mvn package`, `gradle build`). O SafePatch mapeia os pacotes Java, normaliza comentários/espaçamento e gera o diff do que você alterou.
 * 📁 **Suporte Híbrido a Pacotes, Pastas e Fontes**: Aceita arquivos `.jar`, `.war`, `.zip`, **pastas compiladas** (`target/classes`), **pastas de código-fonte** (`src/main/java`, `.`) ou arquivos `.java` individuais.
 * 🔒 **Verificação de Integridade (SHA-256)**: Compara o hash SHA-256 de cada arquivo interno para garantir a detecção exata de modificações lógicas, mesmo quando as datas de modificação ou atributos forem alterados.
@@ -45,7 +63,11 @@ Zero dependências externas: construída exclusivamente com a **biblioteca padr�
 ### Via PyPI (Recomendado)
 
 ```bash
+# Instalação padrão (Zero dependências externas, utiliza OpenSSH nativo)
 pip install safepatch
+
+# Opcional: com suporte à biblioteca Paramiko para transporte SFTP programático
+pip install "safepatch[ssh]"
 ```
 
 ### Via Código-Fonte (Desenvolvimento)
@@ -243,24 +265,158 @@ safepatch --base "base.jar" --alvo "alvo.jar" --fail-on-conflict
 
 ---
 
+### 10. Conexão e Auditoria Remota via SSH / SFTP (Passo 2 do Fluxo Automatizado)
+
+Você pode apontar diretamente para pacotes hospedados no servidor remoto do cliente sem precisar baixá-los manualmente com WinSCP:
+
+```bash
+# Sintaxe SCP clássica
+safepatch --base "deploy@servidor.empresa.com:/opt/app/app-producao.jar" \
+          --alvo "target/classes" \
+          --chave-ssh "~/.ssh/id_rsa" \
+          --diff
+
+# Ou usando formato de URI SSH (com porta e senha se aplicável)
+safepatch --base "ssh://deploy:senha123@servidor.empresa.com:2222/opt/app/app-producao.jar" \
+          --alvo "app-novo.jar" \
+          --salvar-copia-local "./backups" \
+          --diff
+```
+
+* `--salvar-copia-local <pasta>`: Preserva uma cópia local inalterada do arquivo original baixado para histórico ou auditoria.
+* **Segurança e Caching**: O arquivo remoto é baixado para um diretório temporário isolado e removido automaticamente ao término da execução.
+
+---
+
+### 11. Navegação e Exploração de Diretórios Remotos
+
+Não precisa decorar o caminho exato do arquivo no servidor do cliente. O SafePatch oferece navegação interativa pelo terminal e saída estruturada para interfaces gráficas:
+
+#### A) Navegação Interativa pelo Teclado no Terminal:
+```bash
+safepatch --navegar-remoto "deploy@servidor.empresa.com:/opt/app"
+```
+* Use as setas <kbd>↑</kbd> e <kbd>↓</kbd> do teclado para navegar entre pastas e arquivos (ou digite o número).
+* Pressione <kbd>Enter</kbd> para entrar em subdiretórios ou selecionar um `.jar`/`.war`.
+* Selecione `..` ou pressione <kbd>Backspace</kbd> para subir de pasta.
+* Pressione <kbd>q</kbd> ou <kbd>Esc</kbd> para cancelar.
+
+#### B) Listagem Tabular ou JSON:
+```bash
+# Exibição tabular no terminal
+safepatch --listar-remoto "deploy@servidor.empresa.com:/opt/app"
+
+# Emissão em JSON puro (ideal para árvores de arquivos e modais em GUIs externas)
+safepatch --listar-remoto "deploy@servidor.empresa.com:/opt/app" --json -
+```
+
+---
+
+### 12. Publicação Reversa e Deploy Seguro com Rollback (Passo 6 do Fluxo Automatizado)
+
+Após comparar, auditar e aprovar a alteração, substitua o JAR no servidor remoto com segurança total:
+
+```bash
+safepatch --publicar "./dist/app-corrigido.jar" "deploy@servidor.empresa.com:/opt/app/app.jar"
+```
+
+#### Protocolo de Segurança em 4 Etapas:
+1. **Backup Remoto Pré-Deploy**: Gera uma cópia preservada com timestamp no servidor (ex: `/opt/app/app.jar.bak_20261028_220000`).
+2. **Transferência Segura**: Transfere o arquivo aprovado via SCP ou SFTP.
+3. **Validação de Integridade Pós-Transferência (SHA-256)**: Compara o hash SHA-256 calculado localmente contra o hash gerado no arquivo do servidor.
+4. **Mecanismo de Rollback Automático**: Se os hashes divergirem (corrupção na rede ou falha de escrita), o backup original é restaurado imediatamente no servidor e a operação é abortada com alerta.
+
+Flags de ajuste:
+* `--sem-backup`: Desativa a criação da cópia `.bak`.
+* `--sem-verificacao`: Desativa a validação SHA-256 pós-transferência.
+
+---
+
+### 13. Integração com GUIs Externas e Streaming em Tempo Real
+
+O SafePatch foi construído para atuar como motor de comparação para qualquer aplicação externa (JavaFX/WebView, Flutter Desktop, C#/.NET, Electron, etc.):
+
+* **JSON Puro no `stdout` (`--json -` ou `--json-stdout`)**:
+  ```bash
+  safepatch --base "v1.jar" --alvo "v2.jar" --json -
+  ```
+  Garante que 100% da saída do `stdout` seja JSON parseável pela interface gráfica, redirecionando logs informativos para o `stderr`.
+
+* **Streaming de Progresso NDJSON (`--eventos-progresso`)**:
+  ```bash
+  safepatch --base "ssh://servidor/app.jar" --alvo "." --eventos-progresso --json -
+  ```
+  Emite eventos estruturados linha a linha no `stderr` em formato NDJSON:
+  ```json
+  {"evento": "progresso", "etapa": "download_ssh_progresso", "percentual": 45.0, "mensagem": "Baixando pacote via SSH (45.0%)..."}
+  ```
+
+* **Carregamento sob Demanda de Diff (*Lazy Loading* em Milissegundos)**:
+  ```bash
+  safepatch --base "v1.jar" --alvo "v2.jar" --diff-arquivo "com/empresa/UserDTO.class" --json -
+  ```
+  Permite que a interface gráfica abra o comparador instantaneamente apenas para o arquivo em que o usuário clicou.
+
+* **Modo Silencioso (`-s / --silencioso`)**:
+  Suprime saídas de texto no console, ideal para rotinas automatizadas.
+
+---
+
+### 14. Histórico de Auditoria e Compliance (Passo 7 do Fluxo Automatizado)
+
+Todas as operações de comparação, inspeção sob demanda e deploy são registradas automaticamente em um log append-only imutável no arquivo oculto `~/.safepatch/.auditoria.jsonl`.
+
+Cada entrada registra:
+* Data/hora UTC (ISO 8601)
+* Usuário logado e nome da máquina (hostname)
+* Tipo de operação (`comparacao`, `diff_arquivo`, `deploy`)
+* Status de sucesso/falha e detalhes dos artefatos (hashes, totais, caminhos)
+
+Para consultar o histórico recente:
+```bash
+# Visualização resumida no terminal
+safepatch --listar-auditoria
+
+# Ou em JSON para exibir na aba de compliance da GUI
+safepatch --listar-auditoria --json -
+```
+
+---
+
 ## 📖 Referência de Parâmetros da CLI
 
-| Parâmetro | Tipo | Descrição |
-| :--- | :---: | :--- |
-| `--base` | `string` | **Obrigatório.** Caminho para o pacote, diretório compilado ou código-fonte (`.jar`, `.war`, `.zip`, pasta ou `.java`). |
-| `--alvo` | `string` | **Obrigatório.** Caminho para o pacote, diretório compilado ou código-fonte (`.jar`, `.war`, `.zip`, pasta ou `.java`). |
-| `-f`, `--filtro` | `string` | Padrão glob de arquivos ou classes a incluir na análise (ex: `'*UserDTO*'`). Pode ser repetido. |
-| `-i`, `--ignorar` | `string` | Padrão glob de arquivos a ignorar (ex: `'META-INF/*'`). Pode ser repetido. |
-| `-d`, `--diff` | `flag` | Exibe a diferença detalhada do conteúdo estilo Git (linhas adicionadas e removidas em código Java legível). |
-| `-v`, `--verbose` | `flag` | Exibe a lista completa de arquivos no terminal sem limites. |
-| `--limite` | `int` | Quantidade máxima de itens por categoria exibidos no terminal (padrão: `10`). |
-| `--no-color` | `flag` | Desativa a coloração ANSI na saída do console. |
-| `--json` | `string` | Caminho do arquivo para salvar o relatório em formato JSON. |
-| `--md`, `--markdown` | `string` | Caminho do arquivo para salvar o relatório em formato Markdown. |
-| `--html` | `string` | Caminho do arquivo para salvar o relatório visual interativo em HTML com busca e filtros em tempo real. |
-| `--fail-on-conflict` | `flag` | Encerra com código `2` caso haja arquivos modificados. |
-| `-V`, `--version` | `flag` | Exibe a versão instalada do SafePatch e encerra. |
-| `-h`, `--help` | `flag` | Exibe a mensagem de ajuda com todos os comandos disponíveis. |
+| Parâmetro em Português | Alias em Inglês | Tipo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `--base` | - | `string` | Caminho base local ou remoto (`.jar`, `.war`, `.zip`, pasta, `.java` ou `ssh://...`). |
+| `--alvo` | - | `string` | Caminho alvo local ou remoto (`.jar`, `.war`, `.zip`, pasta, `.java` ou `ssh://...`). |
+| `-f`, `--filtro` | - | `string` | Padrão glob de arquivos ou classes a incluir na análise (ex: `'*UserDTO*'`). Pode ser repetido. |
+| `-i`, `--ignorar` | - | `string` | Padrão glob de arquivos a ignorar (ex: `'META-INF/*'`). Pode ser repetido. |
+| `-d`, `--diff` | - | `flag` | Exibe a diferença detalhada do conteúdo estilo Git em código Java legível. |
+| `--diff-arquivo` | `--diff-file` | `string` | Gera o diff sob demanda exclusivamente para o arquivo especificado (ideal para GUIs). |
+| `-s`, `--silencioso` | `-q`, `--quiet` | `flag` | Suprime mensagens informativas no console. |
+| `--eventos-progresso` | `--progress-events` | `flag` | Emite eventos de progresso em tempo real em NDJSON no `stderr`. |
+| `-v`, `--verbose` | - | `flag` | Exibe a lista completa de arquivos no terminal sem limites. |
+| `--limite` | - | `int` | Quantidade máxima de itens por categoria exibidos no terminal (padrão: `10`). |
+| `--no-color` | - | `flag` | Desativa a coloração ANSI na saída do console. |
+| `--json` | - | `string` | Salva o relatório estruturado em arquivo JSON (ou use `-` para stdout). |
+| `--json-stdout` | - | `flag` | Exporta o relatório estruturado em JSON diretamente no stdout. |
+| `--md`, `--markdown` | - | `string` | Caminho do arquivo para salvar o relatório em formato Markdown. |
+| `--html` | - | `string` | Caminho do arquivo para salvar o dashboard interativo em HTML. |
+| `--fail-on-conflict` | - | `flag` | Encerra com código de saída `2` caso haja arquivos modificados. |
+| `--chave-ssh` | `--ssh-key` | `string` | Caminho para a chave privada SSH (`~/.ssh/id_rsa`, `.pem`). |
+| `--porta-ssh` | `--ssh-port` | `int` | Porta do servidor SSH remoto (padrão: `22`). |
+| `--senha-ssh` | `--ssh-password` | `string` | Senha para autenticação no servidor SSH (se aplicável). |
+| `--salvar-copia-local` | `--dir-backup` | `string` | Salva uma cópia de backup do arquivo remoto baixado na máquina local. |
+| `--listar-remoto` | `--list-remote` | `string` | Lista arquivos e pastas no servidor remoto (tabular ou JSON). |
+| `--navegar-remoto` | `--browse-remote` | `string` | Abre navegador interativo pelo teclado no terminal. |
+| `--publicar` | `--deploy` | `nargs=2` | Publica o pacote aprovado no servidor remoto (`local` `remoto`). |
+| `--sem-backup` | `--no-backup` | `flag` | Desativa a criação de backup remoto `.bak` antes do deploy. |
+| `--sem-verificacao` | `--no-verify` | `flag` | Desativa a verificação pós-deploy por SHA-256. |
+| `--listar-auditoria` | `--list-audit` | `flag` | Exibe os registros recentes gravados no log de auditoria. |
+| `--arquivo-auditoria`| `--audit-file` | `string` | Caminho personalizado para o arquivo de log de auditoria. |
+| `--sem-auditoria` | `--no-audit` | `flag` | Desativa temporariamente a gravação no log de auditoria. |
+| `-V`, `--version` | - | `flag` | Exibe a versão instalada do SafePatch e encerra. |
+| `-h`, `--help` | - | `flag` | Exibe a mensagem de ajuda com todos os comandos disponíveis. |
 
 ---
 
@@ -286,7 +442,7 @@ cli/
 │       ├── domain/                    # Núcleo de domínio (regras puras, zero I/O)
 │       │   ├── __init__.py
 │       │   ├── modelos.py             # ArquivoInfo, ArquivoModificadoInfo, RelatorioComparacao
-│       │   ├── protocolos.py          # Interfaces: ProtocoloLeitor, ProtocoloComparador, etc.
+│       │   ├── protocolos.py          # Interfaces: ProtocoloAuditoria, ProtocoloTransporteSSH, etc.
 │       │   └── excecoes.py            # Hierarquia de exceções de domínio
 │       │
 │       ├── application/               # Casos de uso e DTOs
@@ -296,17 +452,25 @@ cli/
 │       │
 │       ├── infrastructure/            # Implementações concretas de I/O
 │       │   ├── __init__.py
+│       │   ├── auditoria/             # Auditoria oculta e compliance (gravador_auditoria.py)
+│       │   ├── remoto/                # Conectividade SSH/SFTP, navegação e deploy seguro
+│       │   │   ├── uri_ssh.py         # Parser e identificador de URIs SSH
+│       │   │   ├── transporte.py      # ProtocoloTransporteSSH e ItemRemotoInfo
+│       │   │   ├── transporte_nativo.py # Transporte OpenSSH nativo (zero dependências)
+│       │   │   ├── transporte_paramiko.py # Transporte SFTP de alta performance (Paramiko)
+│       │   │   └── resolvedor_ssh.py  # Orquestrador de downloads, exploração e rollback
 │       │   ├── sistema_arquivos/      # Escrita atômica segura no disco (escritor_atomico.py)
-│       │   ├── leitores/              # Leitores streaming (leitor_zip, leitor_diretorio, leitor_fonte, leitor_universal)
-│       │   ├── comparacao/            # Comparação por conjuntos e filtros glob (comparador_conjuntos.py)
-│       │   ├── descompilador/         # Descompilador CFR com subprocess seguro e timeout (executor_cfr.py)
+│       │   ├── leitores/              # Leitores streaming (zip, diretorio, fonte Java, universal)
+│       │   ├── comparacao/            # Comparação por conjuntos e filtros glob
+│       │   ├── descompilador/         # Descompilador CFR com subprocess seguro e timeout
 │       │   ├── diff/                  # Motor de unified diff Git (motor_diff.py)
-│       │   └── exportadores/          # Exportadores isolados (exportador_json, markdown, html)
+│       │   └── exportadores/          # Exportadores isolados (json, markdown, html)
 │       │
 │       ├── presentation/              # Camada de apresentação e CLI
 │       │   ├── __init__.py
-│       │   ├── cli.py                 # Parser argparse e controle de exit codes
-│       │   └── console.py             # Renderizador de terminal com cores ANSI (RenderizadorConsole)
+│       │   ├── cli.py                 # Parser argparse, streaming NDJSON e códigos de saída
+│       │   ├── console.py             # Renderizador de terminal com cores ANSI
+│       │   └── navegador_cli.py       # File explorer interativo por teclado e tabela remota
 │       │
 │       ├── shared/                    # Utilitários compartilhados
 │       │   ├── __init__.py
@@ -317,10 +481,10 @@ cli/
 │       └── bin/                       # Binários embutidos
 │           └── cfr.jar                # Descompilador CFR
 │
-└── tests/                             # Suíte de testes automatizados
+└── tests/                             # Suíte de testes automatizados (99 testes)
     ├── __init__.py
     ├── helpers.py                     # Fixtures e geradores temporários
-    ├── unit/                          # Testes unitários isolados
+    ├── unit/                          # Testes unitários (auditoria, remoto, navegador, etc.)
     ├── integration/                   # Testes de integração (Use Cases)
     └── cli/                           # Testes funcionais da interface de linha de comando
 ```

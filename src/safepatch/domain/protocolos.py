@@ -1,7 +1,7 @@
 """Protocolos (interfaces estruturais) do domínio SafePatch."""
 
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Union
+from typing import Any, Dict, List, Optional, Protocol, Union
 from safepatch.domain.modelos import ArquivoInfo, RelatorioComparacao
 
 CaminhoPath = Union[str, Path]
@@ -73,4 +73,18 @@ class ProtocoloExportador(Protocol):
         caminho_alvo: Optional[CaminhoPath] = None,
     ) -> None:
         """Gera e grava o relatório no formato específico de forma atômica."""
+        ...
+
+
+class ProtocoloAuditoria(Protocol):
+    """Contrato para gravadores de registros de auditoria e compliance."""
+
+    def registrar(
+        self,
+        operacao: str,
+        detalhes: Dict[str, Any],
+        sucesso: bool = True,
+        erro: Optional[str] = None,
+    ) -> None:
+        """Registra um evento de auditoria imutável."""
         ...
